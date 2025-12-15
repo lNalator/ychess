@@ -52,7 +52,7 @@ export default class King extends Piece {
     ];
 
     for (const direction of directions) {
-      let currentPosition = { ...this.position };
+      const currentPosition = { ...this.position };
 
       currentPosition.horizontal += direction.dx;
       currentPosition.vertical += direction.dy;
@@ -80,7 +80,7 @@ export default class King extends Piece {
     ];
 
     for (const direction of directions) {
-      let currentPosition = { ...this.position };
+      const currentPosition = { ...this.position };
 
       currentPosition.horizontal += direction.dx;
       currentPosition.vertical += direction.dy;

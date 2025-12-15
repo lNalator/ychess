@@ -1,4 +1,3 @@
-import { atom } from "jotai";
 import Bishop from "../entities/bishop.model";
 import King from "../entities/king.model";
 import Knight from "../entities/knight.model";
@@ -8,14 +7,13 @@ import Queen from "../entities/queen.model";
 import { ColorEnum } from "../enums/color.enum";
 import Position from "../interfaces/position";
 import Rook from "../entities/rook.model";
-import { AfterMovement } from "../interfaces/afterMovement";
 import { CastleEnum } from "../enums/castle.enum";
 import Player from "../entities/player.model";
 import PlayerHelper from "./player.helper";
 
 export default class PiecesHelper {
   static createTeam(color: ColorEnum): Array<Piece> {
-    const team: Array<any> = [];
+    const team: Piece[] = [];
     const pawnRow = color === ColorEnum.WHITE ? 1 : 6;
     const backRow = color === ColorEnum.WHITE ? 0 : 7;
 
@@ -106,8 +104,7 @@ export default class PiecesHelper {
     king: King,
     currentPlayerPieces: Array<Piece>
   ): boolean {
-    let position: Position;
-    position = {
+    const position: Position = {
       vertical: king.position.vertical,
       horizontal: king.position.horizontal + 3,
     };
@@ -133,8 +130,7 @@ export default class PiecesHelper {
     king: King,
     currentPlayerPieces: Array<Piece>
   ): boolean {
-    let position: Position;
-    position = {
+    const position: Position = {
       vertical: king.position.vertical,
       horizontal: king.position.horizontal - 4,
     };

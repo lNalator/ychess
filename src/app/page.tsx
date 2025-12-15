@@ -9,7 +9,7 @@ import { GameState, gameStateAtom } from "@/core/data/gameState";
 import GameOverOverlay from "@/components/gameOverOverlay/GameOverOverlay";
 
 export default function Home() {
-  const [gameState, setGameState] = useAtom(gameStateAtom);
+  const [gameState] = useAtom(gameStateAtom);
   const { players, hasGameEnded }: GameState = gameState;
   const [isMenuOpen, setIsMenuOpen] = useState(true);
 

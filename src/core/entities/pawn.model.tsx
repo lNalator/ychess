@@ -40,8 +40,8 @@ export default class Pawn extends Piece {
   }
 
   getAttacks(): Array<Position>{
-    let firstPos: Position = { ...this.position };
-    let secondPos: Position = { ...this.position };
+    const firstPos: Position = { ...this.position };
+    const secondPos: Position = { ...this.position };
     firstPos.vertical += this.color === ColorEnum.WHITE ? 1 : -1;
     secondPos.vertical += this.color === ColorEnum.WHITE ? 1 : -1;
     firstPos.horizontal += 1;

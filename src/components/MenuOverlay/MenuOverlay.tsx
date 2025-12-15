@@ -30,7 +30,7 @@ export default function MenuOverlay({
   function handleGameReset() {
     setGameState(RESET);
     const newGame = GameHelper.newGame(timeLimit);
-    setGameState((prev: any) => (prev = newGame));
+    setGameState(newGame);
     onClose();
   }
 

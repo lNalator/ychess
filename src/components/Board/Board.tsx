@@ -45,7 +45,7 @@ export default function Board() {
   const handleBoxClick = (
     isPossibleMove: boolean,
     selectedPiece: Piece | null,
-    piece: any,
+    piece: Piece | undefined,
     vertical: number,
     horizontal: number
   ) => {
@@ -153,7 +153,7 @@ export default function Board() {
         <div key={vertical} className="row">
           {[...Array(nbFiles)].map((_, horizontal) => {
             const isPossibleMove = possibleMoves().some(
-              (move: any) =>
+              (move: Position) =>
                 move.vertical === vertical && move.horizontal === horizontal
             );
 

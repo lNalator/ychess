@@ -1,4 +1,3 @@
-import { CastleEnum } from "../enums/castle.enum";
 import { ColorEnum } from "../enums/color.enum";
 import { AfterMovement } from "../interfaces/afterMovement";
 import PiecesHelper from "../helpers/pieces.helper";
