@@ -1,4 +1,4 @@
-import { WritableAtom } from "jotai";
+import { SetStateAction, WritableAtom } from "jotai";
 import Player from "../entities/player.model";
 import { GameHelper } from "../helpers/game.helper";
 import { atomWithStorage, createJSONStorage } from "jotai/utils";
@@ -10,6 +10,7 @@ import Queen from "../entities/queen.model";
 import Rook from "../entities/rook.model";
 import Bishop from "../entities/bishop.model";
 import Knight from "../entities/knight.model";
+import { ColorEnum } from "../enums/color.enum";
 
 export type GameState = {
   players: Array<Player>;
@@ -38,39 +39,55 @@ const classRegistry = {
   Knight,
 };
 
-function reviver(key: any, value: any) {
+function reviver(_key: string, value: unknown) {
+  const obj = value as Record<string, unknown> | null;
+
   if (
-    value &&
-    value.hasOwnProperty("name") &&
-    value.hasOwnProperty("color") &&
-    value.hasOwnProperty("eatenPieces")
+    obj &&
+    typeof obj === "object" &&
+    Object.prototype.hasOwnProperty.call(obj, "name") &&
+    Object.prototype.hasOwnProperty.call(obj, "color") &&
+    Object.prototype.hasOwnProperty.call(obj, "eatenPieces")
   ) {
+    const color = obj.color as ColorEnum;
+    const playerId =
+      (obj.id as string | undefined) ??
+      (color === ColorEnum.WHITE ? "LOCAL_WHITE" : "LOCAL_BLACK");
     return new Player(
-      value.name,
-      value.color,
-      value.isPlaying,
-      value.time,
-      value.pieces as Array<Piece>,
-      value.eatenPieces,
-      value.score,
-      value.askedDraw
+      playerId,
+      obj.name as string,
+      obj.color as string,
+      obj.isPlaying as boolean,
+      obj.time as number,
+      obj.pieces as Array<Piece>,
+      obj.eatenPieces as Array<Piece>,
+      obj.score as number,
+      obj.askedDraw as boolean
     );
   }
 
   if (
-    value &&
-    typeof value === "object" &&
-    value.name &&
-    classRegistry[value.name as keyof typeof classRegistry]
+    obj &&
+    typeof obj === "object" &&
+    typeof obj.name === "string" &&
+    classRegistry[obj.name as keyof typeof classRegistry]
   ) {
     const ClassConstructor =
-      classRegistry[value.name as keyof typeof classRegistry];
+      classRegistry[obj.name as keyof typeof classRegistry];
     return Object.assign(
-      new ClassConstructor(value.position, value.color, value.id),
-      value
+      new ClassConstructor(
+        obj.position as { vertical: number; horizontal: number },
+        obj.color as ColorEnum,
+        obj.id as string
+      ),
+      obj
     );
   }
   return value;
+}
+
+export function reviveGameState(state: unknown): GameState {
+  return JSON.parse(JSON.stringify(state), reviver) as GameState;
 }
 
 const storage: SyncStorage<GameState> = createJSONStorage(() => localStorage);
@@ -84,4 +101,4 @@ export const gameStateAtom = atomWithStorage<GameState>(
   "gameState",
   GameHelper.startGame(),
   storage
-) as WritableAtom<GameState, any, void>;
+) as WritableAtom<GameState, [SetStateAction<GameState>], void>;

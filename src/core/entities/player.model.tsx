@@ -3,6 +3,7 @@ import PiecesHelper from "../helpers/pieces.helper";
 import Piece from "./piece.model";
 
 export default class Player {
+  id: string;
   name: string;
   color: string;
   score: number;
@@ -13,6 +14,7 @@ export default class Player {
   askedDraw: boolean;
 
   constructor(
+    id: string,
     name: string,
     color: string,
     isPlaying: boolean,
@@ -22,6 +24,7 @@ export default class Player {
     score = 0,
     askedDraw = false
   ) {
+    this.id = id;
     this.name = name;
     this.color = color;
     this.isPlaying = isPlaying;

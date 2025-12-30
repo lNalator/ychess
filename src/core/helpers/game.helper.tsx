@@ -5,8 +5,15 @@ import PiecesHelper from "./pieces.helper";
 
 export class GameHelper {
   static startGame(player1Score = 0, player2Score = 0): GameState {
-    const player1 = new Player("Player 1", ColorEnum.WHITE, true, player1Score);
+    const player1 = new Player(
+      "LOCAL_WHITE",
+      "Player 1",
+      ColorEnum.WHITE,
+      true,
+      player1Score
+    );
     const player2 = new Player(
+      "LOCAL_BLACK",
       "Player 2",
       ColorEnum.BLACK,
       false,

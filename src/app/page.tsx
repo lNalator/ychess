@@ -7,11 +7,14 @@ import "./page.css";
 import { useAtom } from "jotai";
 import { GameState, gameStateAtom } from "@/core/data/gameState";
 import GameOverOverlay from "@/components/gameOverOverlay/GameOverOverlay";
+import { useGameEventsSubscription } from "@/core/hooks/useGameEventsSubscription";
 
 export default function Home() {
   const [gameState] = useAtom(gameStateAtom);
   const { players, hasGameEnded }: GameState = gameState;
   const [isMenuOpen, setIsMenuOpen] = useState(true);
+
+  useGameEventsSubscription();
 
   function handleMenuClicked() {
     setIsMenuOpen(!isMenuOpen);

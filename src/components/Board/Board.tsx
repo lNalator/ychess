@@ -3,15 +3,18 @@ import { useAtom } from "jotai";
 import Image from "next/image";
 import { useState } from "react";
 import Piece from "@/core/entities/piece.model";
-import { gameStateAtom, GameState } from "@/core/data/gameState";
+import { gameStateAtom, GameState, reviveGameState } from "@/core/data/gameState";
 import PlayerHelper from "@/core/helpers/player.helper";
 import Position from "@/core/interfaces/position";
 import { CastleEnum } from "@/core/enums/castle.enum";
 import PiecesHelper from "@/core/helpers/pieces.helper";
 import { ColorEnum } from "@/core/enums/color.enum";
+import { onlineGameAtom } from "@/core/data/onlineGame";
+import { makeMove } from "@/core/api/gameApi";
 
 export default function Board() {
   const [gameState, setGameState] = useAtom(gameStateAtom);
+  const [online] = useAtom(onlineGameAtom);
   const { players }: GameState = gameState;
   const playingPlayer = PlayerHelper.getPlayingPlayer(players);
   const notPlayingPlayer = PlayerHelper.getNotPlayingPlayer(players);
@@ -19,9 +22,20 @@ export default function Board() {
   const [selectedPiece, setSelectedPiece] = useState(null as Piece | null);
   const nbFiles = 8;
 
+  const isOnline = online.enabled && !!online.gameId && !!online.playerId;
+  const myColor = online.enabled ? online.playerColor : null;
+  const canPlayThisTurn =
+    !online.enabled || (myColor && myColor === playingPlayer.color);
+
   const possibleMoves = () => {
     let possibleMoves: Array<Position> = [];
-    if (selectedPiece && selectedPiece.color === playingPlayer.color) {
+    const canSelectPiece =
+      selectedPiece &&
+      selectedPiece.color === playingPlayer.color &&
+      canPlayThisTurn &&
+      (!online.enabled || selectedPiece.color === myColor);
+
+    if (canSelectPiece) {
       possibleMoves = selectedPiece.getMovements(
         playingPlayer.pieces,
         notPlayingPlayer.pieces
@@ -36,75 +50,67 @@ export default function Board() {
     return possibleMoves;
   };
 
-  const handleBoxClick = (
+  const handleBoxClick = async (
     isPossibleMove: boolean,
     selectedPiece: Piece | null,
     piece: Piece | undefined,
     vertical: number,
     horizontal: number
   ) => {
-    if (
-      selectedPiece &&
-      selectedPiece.color === playingPlayer.color &&
-      isPossibleMove
-    ) {
-      // Déplacer la pièce si la case est un mouvement possible
+    if (selectedPiece && isPossibleMove && canPlayThisTurn) {
+      if (isOnline) {
+        try {
+          const from = { ...selectedPiece.position };
+          const to = { vertical, horizontal };
+          const game = await makeMove(online.gameId!, {
+            playerId: online.playerId,
+            from,
+            to,
+          });
+
+          setGameState((prev) => {
+            const next = reviveGameState(game.state);
+            next.players.forEach((p) => {
+              const old = prev.players.find((op) => op.id === p.id);
+              if (old) p.time = old.time;
+            });
+            return next;
+          });
+        } catch (e) {
+          alert(String(e));
+        } finally {
+          setSelectedPiece(null);
+        }
+        return;
+      }
+
       const afterMovement = selectedPiece.move({ vertical, horizontal }, piece);
       if (afterMovement.hasEaten && afterMovement.ate) {
-        PlayerHelper.eatPiece(
-          playingPlayer,
-          notPlayingPlayer,
-          afterMovement.ate
-        );
+        PlayerHelper.eatPiece(playingPlayer, notPlayingPlayer, afterMovement.ate);
       }
 
       if (afterMovement?.castle === CastleEnum.SMALL) {
-        PiecesHelper.moveRookForCastle(
-          playingPlayer,
-          selectedPiece,
-          CastleEnum.SMALL
-        );
+        PiecesHelper.moveRookForCastle(playingPlayer, selectedPiece, CastleEnum.SMALL);
       }
       if (afterMovement?.castle === CastleEnum.LARGE) {
-        PiecesHelper.moveRookForCastle(
-          playingPlayer,
-          selectedPiece,
-          CastleEnum.LARGE
-        );
+        PiecesHelper.moveRookForCastle(playingPlayer, selectedPiece, CastleEnum.LARGE);
       }
 
       if (afterMovement?.enPassant) {
-        PiecesHelper.eatEnPassant(
-          selectedPiece,
-          playingPlayer,
-          notPlayingPlayer
-        );
+        PiecesHelper.eatEnPassant(selectedPiece, playingPlayer, notPlayingPlayer);
       }
 
       if (selectedPiece.name === "Pawn") {
         if (selectedPiece.color === ColorEnum.WHITE && vertical === 7) {
-          PiecesHelper.pawnPromotion(
-            selectedPiece,
-            { vertical, horizontal },
-            playingPlayer
-          );
+          PiecesHelper.pawnPromotion(selectedPiece, { vertical, horizontal }, playingPlayer);
         }
         if (selectedPiece.color === ColorEnum.BLACK && vertical === 0) {
-          PiecesHelper.pawnPromotion(
-            selectedPiece,
-            { vertical, horizontal },
-            playingPlayer
-          );
+          PiecesHelper.pawnPromotion(selectedPiece, { vertical, horizontal }, playingPlayer);
         }
       }
 
       if (PlayerHelper.cantPlay(notPlayingPlayer, playingPlayer.pieces)) {
-        if (
-          PiecesHelper.isKingInCheck(
-            notPlayingPlayer.pieces,
-            playingPlayer.pieces
-          )
-        ) {
+        if (PiecesHelper.isKingInCheck(notPlayingPlayer.pieces, playingPlayer.pieces)) {
           playingPlayer.score++;
           setGameState({
             ...gameState,
@@ -135,6 +141,10 @@ export default function Board() {
       PlayerHelper.switchPlayerTurn(players);
       setGameState({ ...gameState });
     } else if (piece) {
+      if (online.enabled) {
+        if (!canPlayThisTurn) return;
+        if (myColor && piece.color !== myColor) return;
+      }
       setSelectedPiece(piece);
     } else {
       setSelectedPiece(null);
@@ -160,9 +170,7 @@ export default function Board() {
             return (
               <div
                 key={vertical * 10 + horizontal}
-                className={
-                  ((vertical + horizontal) % 2 ? "light" : "dark") + " box"
-                }
+                className={((vertical + horizontal) % 2 ? "light" : "dark") + " box"}
                 onClick={() =>
                   handleBoxClick(
                     isPossibleMove,
@@ -182,8 +190,7 @@ export default function Board() {
                 {piece && (
                   <Image
                     src={`/imgs/${
-                      Array.from(piece.color.toLowerCase())[0] +
-                      piece.name.toLowerCase()
+                      Array.from(piece.color.toLowerCase())[0] + piece.name.toLowerCase()
                     }.png`}
                     fill={true}
                     sizes="max-width: 100px, max-height: 100px"
@@ -199,3 +206,4 @@ export default function Board() {
     </div>
   );
 }
+

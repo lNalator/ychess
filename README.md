@@ -29,6 +29,41 @@ npm run dev
 ```
 Ensuite ouvrir http://localhost:3000 dans le navigateur.
 
+## Mode en ligne (GraphQL + subscriptions)
+
+Le front peut se connecter au backend NestJS `ychess-back` pour jouer en temps reel (mouvements + evenements par partie via subscription).
+
+### Lancer le backend
+
+Dans `ychess-back/`:
+
+```bash
+npm install
+npm run start:dev
+```
+
+Par defaut le backend ecoute sur `http://localhost:3001`.
+
+### Configurer l'URL GraphQL (optionnel)
+
+Par defaut, le front vise `http://localhost:3001/graphql`.
+
+Vous pouvez surcharger avec des variables d'environnement:
+
+- `NEXT_PUBLIC_CHESS_HTTP_URL` (ex: `http://localhost:3001/graphql`)
+- `NEXT_PUBLIC_CHESS_WS_URL` (ex: `ws://localhost:3001/graphql`)
+
+### Utilisation
+
+- Ouvrir le menu -> section **Online game**
+- `Create online game` puis partager le **Game ID**
+- Sur un autre navigateur: coller le Game ID -> `Join online game`
+- Les mouvements sont valides cote serveur puis diffuses via subscription
+
+Notes:
+- Pas d'auth: un `playerId` est genere et stocke localement cote front.
+- Les boutons `Resign`/`Draw` (offline) sont masques en mode online.
+
 Pour une version de production:
 ```bash
 npm run build
