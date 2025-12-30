@@ -26,17 +26,11 @@ export default function Board() {
         playingPlayer.pieces,
         notPlayingPlayer.pieces
       );
-      if (selectedPiece.name !== "King") {
-        possibleMoves = selectedPiece.getFilteredMovements(
-          playingPlayer.pieces,
-          notPlayingPlayer.pieces
-        );
-      } else {
-        possibleMoves = selectedPiece.getMovements(
-          playingPlayer.pieces,
-          notPlayingPlayer.pieces
-        );
-      }
+
+      possibleMoves = selectedPiece.getFilteredMovements(
+        playingPlayer.pieces,
+        notPlayingPlayer.pieces
+      );
     }
 
     return possibleMoves;

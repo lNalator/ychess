@@ -10,7 +10,7 @@ export default function GameOverOverlay({
   open: boolean;
 }>) {
   const [gameState, setGameState] = useAtom(gameStateAtom);
-  const [timeLimit, setTimeLimit] = useState(300);
+  const [timeLimit, setTimeLimit] = useState(60);
   const { players, reason, winner } = gameState;
 
   const gameOverReason = GameHelper.getGameOverReason(reason);
@@ -38,6 +38,7 @@ export default function GameOverOverlay({
             setTimeLimit(parseInt(e.target.value));
           }}
         >
+          <option value={60}>1 min</option>
           <option value={300}>5 min</option>
           <option value={600}>10 min</option>
           <option value={900}>15 min</option>
