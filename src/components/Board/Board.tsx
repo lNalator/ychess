@@ -22,8 +22,9 @@ export default function Board() {
   const [selectedPiece, setSelectedPiece] = useState(null as Piece | null);
   const nbFiles = 8;
 
-  const isOnline = online.enabled && !!online.gameId && !!online.playerId;
+  const isOnline = online.enabled && !!online.gameId && !!online.clientId;
   const myColor = online.enabled ? online.playerColor : null;
+  const isReversed = online.enabled && myColor === ColorEnum.BLACK;
   const canPlayThisTurn =
     !online.enabled || (myColor && myColor === playingPlayer.color);
 
@@ -62,20 +63,14 @@ export default function Board() {
         try {
           const from = { ...selectedPiece.position };
           const to = { vertical, horizontal };
-          const game = await makeMove(online.gameId!, {
-            playerId: online.playerId,
+          const game = await makeMove({
+            clientId: online.clientId,
+            gameId: online.gameId!,
             from,
             to,
           });
 
-          setGameState((prev) => {
-            const next = reviveGameState(game.state);
-            next.players.forEach((p) => {
-              const old = prev.players.find((op) => op.id === p.id);
-              if (old) p.time = old.time;
-            });
-            return next;
-          });
+          setGameState(reviveGameState(game.state));
         } catch (e) {
           alert(String(e));
         } finally {
@@ -156,15 +151,19 @@ export default function Board() {
       {[...Array(nbFiles)].map((_, vertical) => (
         <div key={vertical} className="row">
           {[...Array(nbFiles)].map((_, horizontal) => {
+            const internalVertical = isReversed ? nbFiles - 1 - vertical : vertical;
+            const internalHorizontal = isReversed ? nbFiles - 1 - horizontal : horizontal;
+
             const isPossibleMove = possibleMoves().some(
               (move: Position) =>
-                move.vertical === vertical && move.horizontal === horizontal
+                move.vertical === internalVertical &&
+                move.horizontal === internalHorizontal
             );
 
             const piece = PlayerHelper.getAllPieces(players).find(
               (p) =>
-                p.position?.vertical === vertical &&
-                p.position?.horizontal === horizontal
+                p.position?.vertical === internalVertical &&
+                p.position?.horizontal === internalHorizontal
             );
 
             return (
@@ -176,8 +175,8 @@ export default function Board() {
                     isPossibleMove,
                     selectedPiece,
                     piece,
-                    vertical,
-                    horizontal
+                    internalVertical,
+                    internalHorizontal
                   )
                 }
               >
@@ -206,4 +205,3 @@ export default function Board() {
     </div>
   );
 }
-

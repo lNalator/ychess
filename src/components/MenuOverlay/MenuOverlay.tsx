@@ -1,11 +1,18 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import "./menuOverlay.css";
 import { GameHelper } from "@/core/helpers/game.helper";
 import { gameStateAtom, reviveGameState } from "@/core/data/gameState";
 import { useAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import { onlineGameAtom } from "@/core/data/onlineGame";
-import { createGame, getGame, joinGame, leaveGame } from "@/core/api/gameApi";
+import {
+  createInviteGame,
+  dequeueMatchmaking,
+  enqueueMatchmaking,
+  getGameSession,
+  joinInviteGame,
+  quitGame,
+} from "@/core/api/gameApi";
 import { ColorEnum } from "@/core/enums/color.enum";
 
 export default function MenuOverlay({
@@ -17,12 +24,19 @@ export default function MenuOverlay({
 }) {
   const [gameState, setGameState] = useAtom(gameStateAtom);
   const [online, setOnline] = useAtom(onlineGameAtom);
-  const [timeLimit, setTimeLimit] = useState(60);
-  const [joinId, setJoinId] = useState("");
-  const [name, setName] = useState("");
+
   const { players } = gameState;
 
-  function handleGameStart() {
+  const [timeLimit, setTimeLimit] = useState(300);
+  const [code, setCode] = useState("");
+  const [name, setName] = useState("");
+
+  const timeControl = useMemo(
+    () => ({ initialSeconds: timeLimit, incrementSeconds: 0 }),
+    [timeLimit]
+  );
+
+  function handleOfflineStart() {
     GameHelper.resetPlayers(players, timeLimit);
     setGameState({
       ...gameState,
@@ -33,89 +47,147 @@ export default function MenuOverlay({
     onClose();
   }
 
-  function handleGameReset() {
+  function handleOfflineReset() {
     setGameState(RESET);
     const newGame = GameHelper.newGame(timeLimit);
     setGameState(newGame);
     onClose();
   }
 
-  function closeMenu() {
-    onClose();
-  }
-
-  async function handleCreateOnline() {
+  async function handleCreateInvite() {
     try {
-      const game = await createGame({
-        playerId: online.playerId,
+      const session = await createInviteGame({
+        clientId: online.clientId,
         name: name || undefined,
-        timeLimitSeconds: timeLimit,
+        timeControl,
       });
+
       setOnline((prev) => ({
         ...prev,
         enabled: true,
-        gameId: game.id,
-        playerName: name,
-        playerColor:
-          ((game.state.players.find((p) => p.id === prev.playerId)?.color as
-            | ColorEnum
-            | undefined) ?? null),
+        matchmakingQueued: false,
+        gameId: session.gameId,
+        code: session.code ?? null,
+        clientName: name,
+        playerColor: session.playerColor as ColorEnum,
+        timeControlInitialSeconds: timeControl.initialSeconds,
+        timeControlIncrementSeconds: timeControl.incrementSeconds ?? 0,
+        rematchOpponentRequested: false,
+        rematchRequestedByMe: false,
       }));
-      setGameState(reviveGameState(game.state));
+
+      setGameState(reviveGameState(session.game.state));
+      onClose();
+
+      if (session.code) {
+        window.prompt("Invite code (share this):", session.code);
+      }
+    } catch (e) {
+      alert(String(e));
+    }
+  }
+
+  async function handleJoinInvite() {
+    try {
+      const session = await joinInviteGame({
+        clientId: online.clientId,
+        name: name || undefined,
+        code: code.trim(),
+      });
+
+      setOnline((prev) => ({
+        ...prev,
+        enabled: true,
+        matchmakingQueued: false,
+        gameId: session.gameId,
+        code: session.code ?? null,
+        clientName: name,
+        playerColor: session.playerColor as ColorEnum,
+        timeControlInitialSeconds: session.game.timeControl.initialSeconds,
+        timeControlIncrementSeconds: session.game.timeControl.incrementSeconds ?? 0,
+        rematchOpponentRequested: false,
+        rematchRequestedByMe: false,
+      }));
+
+      setGameState(reviveGameState(session.game.state));
       onClose();
     } catch (e) {
       alert(String(e));
     }
   }
 
-  async function handleJoinOnline() {
+  async function handleFindGame() {
     try {
-      const game = await joinGame(joinId.trim(), {
-        playerId: online.playerId,
-        name: name || undefined,
-      });
       setOnline((prev) => ({
         ...prev,
-        enabled: true,
-        gameId: game.id,
-        playerName: name,
-        playerColor:
-          ((game.state.players.find((p) => p.id === prev.playerId)?.color as
-            | ColorEnum
-            | undefined) ?? null),
+        matchmakingQueued: true,
+        timeControlInitialSeconds: timeControl.initialSeconds,
+        timeControlIncrementSeconds: timeControl.incrementSeconds ?? 0,
+        clientName: name,
       }));
-      setGameState(reviveGameState(game.state));
-      onClose();
+      const res = await enqueueMatchmaking({
+        clientId: online.clientId,
+        name: name || undefined,
+        timeControl,
+      });
+      if (!res.enqueued) {
+        // match may be immediate; subscription will deliver the matchFound event
+      }
     } catch (e) {
+      setOnline((prev) => ({ ...prev, matchmakingQueued: false }));
       alert(String(e));
+    }
+  }
+
+  async function handleCancelFindGame() {
+    try {
+      await dequeueMatchmaking({ clientId: online.clientId });
+    } catch {
+      // ignore
+    } finally {
+      setOnline((prev) => ({ ...prev, matchmakingQueued: false }));
     }
   }
 
   async function handleResyncOnline() {
     if (!online.gameId) return;
     try {
-      const game = await getGame(online.gameId);
-      setGameState(reviveGameState(game.state));
+      const session = await getGameSession({
+        gameId: online.gameId,
+        clientId: online.clientId,
+      });
+      setOnline((prev) => ({
+        ...prev,
+        code: session.code ?? null,
+        playerColor: session.playerColor as ColorEnum,
+        timeControlInitialSeconds: session.game.timeControl.initialSeconds,
+        timeControlIncrementSeconds: session.game.timeControl.incrementSeconds ?? 0,
+      }));
+      setGameState(reviveGameState(session.game.state));
     } catch (e) {
       alert(String(e));
     }
   }
 
-  async function handleLeaveOnline() {
+  async function handleQuitOnline() {
     if (!online.gameId) return;
     try {
-      await leaveGame(online.gameId, { playerId: online.playerId });
+      await quitGame({ clientId: online.clientId, gameId: online.gameId });
     } catch {
       // ignore
     } finally {
       setOnline((prev) => ({
         ...prev,
         enabled: false,
+        matchmakingQueued: false,
         gameId: null,
+        code: null,
         playerColor: null,
+        rematchOpponentRequested: false,
+        rematchRequestedByMe: false,
       }));
       setGameState(RESET);
-      setGameState(GameHelper.newGame(timeLimit));
+      setGameState(GameHelper.newGame(300));
       onClose();
     }
   }
@@ -128,12 +200,11 @@ export default function MenuOverlay({
         </button>
         <h1>Menu</h1>
         <div className="menu-content">
-          <p>Choose your time limit</p>
+          <p>Time control</p>
           <select
             className="menu-select"
-            onChange={(e) => {
-              setTimeLimit(parseInt(e.target.value));
-            }}
+            value={timeLimit}
+            onChange={(e) => setTimeLimit(parseInt(e.target.value))}
           >
             <option value={60}>1 min</option>
             <option value={300}>5 min</option>
@@ -143,45 +214,65 @@ export default function MenuOverlay({
 
           <hr style={{ width: "100%" }} />
 
-          <p>Online game</p>
+          <p>Online</p>
           <input
             className="menu-select"
             placeholder="Your name (optional)"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
+
           {!online.enabled ? (
             <>
+              <div className="menu-buttons">
+                <button onClick={handleCreateInvite}>Create game (invite)</button>
+              </div>
               <input
                 className="menu-select"
-                placeholder="Game ID to join"
-                value={joinId}
-                onChange={(e) => setJoinId(e.target.value)}
+                placeholder="Invite code (7 chars)"
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
               />
               <div className="menu-buttons">
-                <button onClick={handleCreateOnline}>Create online game</button>
-                <button onClick={handleJoinOnline} disabled={!joinId.trim()}>
-                  Join online game
+                <button onClick={handleJoinInvite} disabled={code.trim().length < 7}>
+                  Join by code
                 </button>
               </div>
+
+              {!online.matchmakingQueued ? (
+                <div className="menu-buttons">
+                  <button onClick={handleFindGame}>Find a game</button>
+                </div>
+              ) : (
+                <div className="menu-buttons">
+                  <button onClick={handleCancelFindGame}>Cancel search</button>
+                </div>
+              )}
             </>
           ) : (
             <>
-              <p style={{ wordBreak: "break-all" }}>
-                Game ID: <b>{online.gameId}</b>
+              {online.code && (
+                <p style={{ wordBreak: "break-all" }}>
+                  Code: <b>{online.code}</b>
+                </p>
+              )}
+              <p>
+                You are: <b>{online.playerColor ?? "..."}</b>
               </p>
-              <p>Your color: {online.playerColor ?? "..."}</p>
               <div className="menu-buttons">
                 <button onClick={handleResyncOnline}>Resync</button>
-                <button onClick={handleLeaveOnline}>Leave online game</button>
+                <button onClick={handleQuitOnline}>Quit game</button>
               </div>
             </>
           )}
 
+          <hr style={{ width: "100%" }} />
+
+          <p>Offline</p>
           <div className="menu-buttons">
-            <button onClick={handleGameStart}>Start new match</button>
-            <button onClick={closeMenu}>Continue</button>
-            <button onClick={handleGameReset}>Clean Game</button>
+            <button onClick={handleOfflineStart}>Start new match</button>
+            <button onClick={onClose}>Continue</button>
+            <button onClick={handleOfflineReset}>Clean Game</button>
           </div>
         </div>
       </div>

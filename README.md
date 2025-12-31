@@ -55,14 +55,16 @@ Vous pouvez surcharger avec des variables d'environnement:
 
 ### Utilisation
 
-- Ouvrir le menu -> section **Online game**
-- `Create online game` puis partager le **Game ID**
-- Sur un autre navigateur: coller le Game ID -> `Join online game`
-- Les mouvements sont valides cote serveur puis diffuses via subscription
+- Ouvrir le menu -> section **Online**
+- Invite: `Create game (invite)` -> une popup affiche un code de 7 caracteres (a partager) -> sur un autre navigateur: `Join by code`
+- Matchmaking: `Find a game` (meme time control) -> attente -> entree automatique en partie
+- Les mouvements et les timers sont autoritaires cote serveur et diffuses via subscriptions
+- `Quit` force le retour au menu pour les 2 joueurs (avec message cote adversaire)
 
 Notes:
-- Pas d'auth: un `playerId` est genere et stocke localement cote front.
+- Pas d'auth: un `clientId` est genere et stocke localement cote front.
 - Les boutons `Resign`/`Draw` (offline) sont masques en mode online.
+- Orientation: le joueur NOIR voit le plateau inverse (noir en bas).
 
 Pour une version de production:
 ```bash

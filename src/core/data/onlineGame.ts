@@ -6,18 +6,30 @@ import { ColorEnum } from "../enums/color.enum";
 export type OnlineGameSession = {
   enabled: boolean;
   gameId: string | null;
-  playerId: string;
-  playerName: string;
+  code: string | null;
+  clientId: string;
+  clientName: string;
   playerColor: ColorEnum | null;
+  matchmakingQueued: boolean;
+  timeControlInitialSeconds: number;
+  timeControlIncrementSeconds: number;
+  rematchOpponentRequested: boolean;
+  rematchRequestedByMe: boolean;
 };
 
 function createDefaultSession(): OnlineGameSession {
   return {
     enabled: false,
     gameId: null,
-    playerId: crypto.randomUUID(),
-    playerName: "",
+    code: null,
+    clientId: crypto.randomUUID(),
+    clientName: "",
     playerColor: null,
+    matchmakingQueued: false,
+    timeControlInitialSeconds: 300,
+    timeControlIncrementSeconds: 0,
+    rematchOpponentRequested: false,
+    rematchRequestedByMe: false,
   };
 }
 
@@ -32,7 +44,7 @@ storage.getItem = (key) => {
     return {
       ...createDefaultSession(),
       ...parsed,
-      playerId: parsed.playerId ?? crypto.randomUUID(),
+      clientId: parsed.clientId ?? crypto.randomUUID(),
     };
   } catch {
     return createDefaultSession();

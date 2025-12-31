@@ -6,6 +6,7 @@ import PlayerHelper from "@/core/helpers/player.helper";
 import { useAtom } from "jotai";
 import { gameStateAtom } from "@/core/data/gameState";
 import GameButtons from "../GameButtons/GameButtons";
+import { onlineGameAtom } from "@/core/data/onlineGame";
 
 export default function Timer({
   player,
@@ -15,6 +16,7 @@ export default function Timer({
   className?: string;
 }>) {
   const [gameState, setGameState] = useAtom(gameStateAtom);
+  const [online] = useAtom(onlineGameAtom);
   const { players, hasGameEnded } = gameState;
   const oponnentPlayer = PlayerHelper.getOpponentPlayer(player, players);
   const [time, setTime] = useState(player.time); // Local state to track time
@@ -36,6 +38,7 @@ export default function Timer({
   }
 
   useEffect(() => {
+    if (online.enabled) return;
     if (hasGameEnded) {
       clearInterval(intervalRef.current!);
       return;
