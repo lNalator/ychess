@@ -23,13 +23,15 @@ export default function Board() {
   const nbFiles = 8;
 
   const isOnline = online.enabled && !!online.gameId && !!online.clientId;
-  const myColor = online.enabled ? online.playerColor : null;
-  const isReversed = online.enabled && myColor === ColorEnum.BLACK;
+  const myColor = online.enabled ? online.playerColor : online.viewColor;
+  const isReversed = myColor === ColorEnum.BLACK;
+  const isReadOnly = online.readOnly || gameState.hasGameEnded;
   const canPlayThisTurn =
     !online.enabled || (myColor && myColor === playingPlayer.color);
 
   const possibleMoves = () => {
     let possibleMoves: Array<Position> = [];
+    if (isReadOnly) return possibleMoves;
     const canSelectPiece =
       selectedPiece &&
       selectedPiece.color === playingPlayer.color &&
@@ -58,6 +60,7 @@ export default function Board() {
     vertical: number,
     horizontal: number
   ) => {
+    if (isReadOnly) return;
     if (selectedPiece && isPossibleMove && canPlayThisTurn) {
       if (isOnline) {
         try {

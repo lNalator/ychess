@@ -28,6 +28,7 @@ export type reason = {
   resign?: boolean;
   timeout?: boolean;
   agreement?: boolean;
+  opponentQuit?: boolean;
 };
 
 const classRegistry = {

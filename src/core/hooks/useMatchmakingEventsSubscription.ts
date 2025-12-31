@@ -43,15 +43,18 @@ export function useMatchmakingEventsSubscription() {
           setOnline((prev) => ({
             ...prev,
             enabled: true,
+            readOnly: false,
             matchmakingQueued: false,
             gameId: event.gameId!,
             code: event.game.code ?? null,
             playerColor: (event.playerColor as ColorEnum) ?? null,
+            viewColor: (event.playerColor as ColorEnum) ?? null,
             timeControlInitialSeconds: event.game.timeControl.initialSeconds,
             timeControlIncrementSeconds:
               event.game.timeControl.incrementSeconds ?? 0,
             rematchOpponentRequested: false,
             rematchRequestedByMe: false,
+            disconnect: null,
           }));
           setGameState(reviveGameState(event.game.state));
         }

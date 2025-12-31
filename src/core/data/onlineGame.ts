@@ -10,11 +10,18 @@ export type OnlineGameSession = {
   clientId: string;
   clientName: string;
   playerColor: ColorEnum | null;
+  viewColor: ColorEnum | null;
+  readOnly: boolean;
   matchmakingQueued: boolean;
   timeControlInitialSeconds: number;
   timeControlIncrementSeconds: number;
   rematchOpponentRequested: boolean;
   rematchRequestedByMe: boolean;
+  disconnect: null | {
+    clientId: string;
+    graceSeconds: number;
+    deadlineAt: string;
+  };
 };
 
 function createDefaultSession(): OnlineGameSession {
@@ -25,11 +32,14 @@ function createDefaultSession(): OnlineGameSession {
     clientId: crypto.randomUUID(),
     clientName: "",
     playerColor: null,
+    viewColor: null,
+    readOnly: false,
     matchmakingQueued: false,
     timeControlInitialSeconds: 300,
     timeControlIncrementSeconds: 0,
     rematchOpponentRequested: false,
     rematchRequestedByMe: false,
+    disconnect: null,
   };
 }
 

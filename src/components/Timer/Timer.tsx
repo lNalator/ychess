@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Player from "@/core/entities/player.model";
 import "./timer.css";
 import Image from "next/image";
@@ -20,25 +20,24 @@ export default function Timer({
   const { players, hasGameEnded } = gameState;
   const oponnentPlayer = PlayerHelper.getOpponentPlayer(player, players);
   const [time, setTime] = useState(player.time); // Local state to track time
+  const [disconnectLeftSeconds, setDisconnectLeftSeconds] = useState<
+    number | null
+  >(null);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  function getTime(timing: number) {
-    if (hasGameEnded || timing <= 0) {
-      clearInterval(intervalRef.current!);
-      if (timing <= 0) {
-        setTime(Math.max(timing, 0));
-        handleLostByTime();
-      }
-      return;
-    }
-
-    setTime(timing - 1);
-    player.time = timing - 1;
-  }
+  const handleLostByTime = useCallback(() => {
+    oponnentPlayer.score++;
+    setGameState((prev) => ({
+      ...prev,
+      hasGameEnded: true,
+      winner: oponnentPlayer,
+      reason: { timeout: true },
+    }));
+  }, [oponnentPlayer, setGameState]);
 
   useEffect(() => {
-    if (online.enabled) return;
+    if (online.enabled || online.readOnly) return;
     if (hasGameEnded) {
       clearInterval(intervalRef.current!);
       return;
@@ -46,12 +45,49 @@ export default function Timer({
 
     if (player.isPlaying && player.time > 0) {
       intervalRef.current = setInterval(() => {
-        getTime(player.time);
+        const timing = player.time;
+        if (hasGameEnded || timing <= 0) {
+          clearInterval(intervalRef.current!);
+          if (timing <= 0) {
+            setTime(Math.max(timing, 0));
+            handleLostByTime();
+          }
+          return;
+        }
+
+        setTime(timing - 1);
+        player.time = timing - 1;
       }, 1000);
     }
 
     return () => clearInterval(intervalRef.current!);
-  }, [player.isPlaying, hasGameEnded]);
+  }, [
+    online.enabled,
+    online.readOnly,
+    player,
+    player.isPlaying,
+    player.time,
+    hasGameEnded,
+    handleLostByTime,
+  ]);
+
+  useEffect(() => {
+    const dc = online.disconnect;
+    if (!dc || dc.clientId !== player.id) {
+      setDisconnectLeftSeconds(null);
+      return;
+    }
+
+    const update = () => {
+      const deadlineMs = Date.parse(dc.deadlineAt);
+      const left = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
+      setDisconnectLeftSeconds(left);
+    };
+
+    update();
+    const id = setInterval(update, 250);
+    return () => clearInterval(id);
+  }, [online.disconnect, player.id]);
 
   useEffect(() => {
     setTime(player.time);
@@ -75,16 +111,6 @@ export default function Timer({
     player,
     oponnentPlayer
   );
-
-  function handleLostByTime() {
-    oponnentPlayer.score++;
-    setGameState({
-      ...gameState,
-      hasGameEnded: true,
-      winner: oponnentPlayer,
-      reason: { timeout: true },
-    });
-  }
 
   return (
     <div className={"timer " + className}>
@@ -122,6 +148,11 @@ export default function Timer({
             {minutes < 10 ? `0${minutes} ` : minutes + " "}:
             {seconds < 10 ? ` 0${seconds}` : " " + seconds}
           </p>
+          {disconnectLeftSeconds !== null && (
+            <p style={{ fontSize: "0.9rem", opacity: 0.9 }}>
+              leaving in {disconnectLeftSeconds}s
+            </p>
+          )}
         </div>
         <GameButtons player={player} />
       </div>

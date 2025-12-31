@@ -56,6 +56,9 @@ export type GqlGame = {
   status: string;
   turnColor: string;
   timeControl: GqlTimeControl;
+  disconnectGraceSeconds: number;
+  disconnectingClientId?: string | null;
+  disconnectDeadlineAt?: string | null;
   createdAt: string;
   updatedAt: string;
   state: GqlGameState;
@@ -84,6 +87,9 @@ export const GAME_FIELDS = `
   status
   turnColor
   timeControl { initialSeconds incrementSeconds }
+  disconnectGraceSeconds
+  disconnectingClientId
+  disconnectDeadlineAt
   createdAt
   updatedAt
   state {
@@ -253,4 +259,3 @@ export async function getGameSession(input: {
   const data = await graphqlRequest<{ game: GqlGameSession }>(query, input);
   return data.game;
 }
-

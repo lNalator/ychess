@@ -51,6 +51,8 @@ export class GameHelper {
       return "Draw by agreement";
     } else if (reason.draw) {
       return "Draw";
+    } else if (reason.opponentQuit) {
+      return "Opponent left";
     } else if (reason.resign) {
       return "Resignation";
     } else if (reason.timeout) {

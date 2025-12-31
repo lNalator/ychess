@@ -55,11 +55,12 @@ Vous pouvez surcharger avec des variables d'environnement:
 
 ### Utilisation
 
-- Ouvrir le menu -> section **Online**
-- Invite: `Create game (invite)` -> une popup affiche un code de 7 caracteres (a partager) -> sur un autre navigateur: `Join by code`
-- Matchmaking: `Find a game` (meme time control) -> attente -> entree automatique en partie
+- L'ecran d'accueil (Home) propose: **Play Locally** ou **Play Online**
+- Online avec code: **Online with a Code** -> `Create Invite Game` (popup avec code 7 caracteres) ou `Join Game`
+- Online matchmaking: **Online Matchmaking** -> `Find a Game` (meme time control) -> entree automatique en partie via subscription
 - Les mouvements et les timers sont autoritaires cote serveur et diffuses via subscriptions
-- `Quit` force le retour au menu pour les 2 joueurs (avec message cote adversaire)
+- Quit (online): propose "Stay on board" (snapshot read-only, session online fermee) ou "Go back Home"
+- Si un joueur quitte/deconnecte: un countdown apparait cote adversaire (grace configurable)
 
 Notes:
 - Pas d'auth: un `clientId` est genere et stocke localement cote front.

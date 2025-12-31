@@ -7,8 +7,6 @@ import { onlineGameAtom } from "../data/onlineGame";
 import { graphqlSubscribe } from "../api/graphqlWs";
 import { GAME_FIELDS, GqlGame, getGameSession } from "../api/gameApi";
 import { ColorEnum } from "../enums/color.enum";
-import { GameHelper } from "../helpers/game.helper";
-import { RESET } from "jotai/utils";
 
 type GameEventData = {
   gameEvents: {
@@ -16,6 +14,8 @@ type GameEventData = {
     gameId: string;
     at: string;
     message?: string | null;
+    graceSeconds?: number | null;
+    deadlineAt?: string | null;
     game: GqlGame;
     player?: { id: string; name: string; color: string } | null;
     move?: {
@@ -47,9 +47,20 @@ export function useGameEventsSubscription() {
           ...prev,
           code: session.code ?? null,
           playerColor: session.playerColor as ColorEnum,
+          viewColor: session.playerColor as ColorEnum,
           timeControlInitialSeconds: session.game.timeControl.initialSeconds,
           timeControlIncrementSeconds:
             session.game.timeControl.incrementSeconds ?? 0,
+          disconnect:
+            session.game.disconnectingClientId &&
+            session.game.disconnectDeadlineAt &&
+            session.game.disconnectingClientId !== prev.clientId
+              ? {
+                  clientId: session.game.disconnectingClientId,
+                  deadlineAt: session.game.disconnectDeadlineAt,
+                  graceSeconds: session.game.disconnectGraceSeconds,
+                }
+              : null,
         }));
         setGameState(reviveGameState(session.game.state));
       } catch (e) {
@@ -64,6 +75,8 @@ export function useGameEventsSubscription() {
           gameId
           at
           message
+          graceSeconds
+          deadlineAt
           player { id name color }
           move { byPlayerId playedAt from { vertical horizontal } to { vertical horizontal } promotion }
           game { ${GAME_FIELDS} }
@@ -83,26 +96,32 @@ export function useGameEventsSubscription() {
         const me = state.players.find((p) => p.id === online.clientId);
         const myColor = me?.color as ColorEnum | undefined;
         if (myColor && online.playerColor !== myColor) {
-          setOnline((prev) => ({ ...prev, playerColor: myColor }));
+          setOnline((prev) => ({
+            ...prev,
+            playerColor: myColor,
+            viewColor: myColor,
+          }));
         }
 
-        if (event.type === "PLAYER_QUIT") {
-          const quitterId = event.player?.id;
-          if (quitterId && quitterId !== online.clientId) {
-            alert("Opponent left the game.");
+        if (event.type === "PLAYER_DISCONNECTED") {
+          const disconnectedId = event.player?.id;
+          const deadlineAt = event.deadlineAt;
+          const graceSeconds = event.graceSeconds;
+          if (
+            disconnectedId &&
+            deadlineAt &&
+            typeof graceSeconds === "number" &&
+            disconnectedId !== online.clientId
+          ) {
             setOnline((prev) => ({
               ...prev,
-              enabled: false,
-              gameId: null,
-              code: null,
-              playerColor: null,
-              matchmakingQueued: false,
-              rematchOpponentRequested: false,
-              rematchRequestedByMe: false,
+              disconnect: { clientId: disconnectedId, deadlineAt, graceSeconds },
             }));
-            setGameState(RESET);
-            setGameState(GameHelper.newGame(300));
           }
+        }
+
+        if (event.type === "PLAYER_RECONNECTED") {
+          setOnline((prev) => ({ ...prev, disconnect: null }));
         }
 
         if (event.type === "REMATCH_REQUESTED") {
@@ -125,7 +144,12 @@ export function useGameEventsSubscription() {
             ...prev,
             rematchOpponentRequested: false,
             rematchRequestedByMe: false,
+            disconnect: null,
           }));
+        }
+
+        if (event.type === "GAME_ENDED") {
+          setOnline((prev) => ({ ...prev, disconnect: null }));
         }
       },
       onError: (err) => {

@@ -1,35 +1,71 @@
-#main {
+.home-root {
+  min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-evenly;
-  flex-direction: column;
-  height: 100%;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
 }
 
-.timerContainer {
+.home-title {
+  margin: 0;
+}
+
+.home-card {
+  width: min(520px, 92vw);
+  background: #312e2b;
+  color: white;
+  border-radius: 1rem;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  align-items: flex-start;
-  padding: 0.5rem 0;
-  width: 70vh;
-  min-height: 160px;
+  gap: 1rem;
 }
 
-.menu-button {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 5rem;
-  height: 3.5rem;
-  border-radius: 0 0 0 0.5rem;
+.home-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.home-btn {
+  padding: 0.6rem 0.8rem;
+  border-radius: 0.5rem;
   border: 0;
-}
-
-.menu-button:hover {
   cursor: pointer;
 }
 
-.menu-button:active {
-  transform: scale(0.95);
+.home-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.home-link {
+  background: transparent;
+  color: white;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  align-self: flex-start;
+}
+
+.home-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.home-input,
+.home-select {
+  font-size: 1rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: 0;
+}
+
+.home-muted {
+  opacity: 0.85;
+  margin: 0;
 }
