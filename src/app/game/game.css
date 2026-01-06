@@ -20,9 +20,17 @@
 
 .game-main {
   display: flex;
+  flex-direction: column;
   flex: 1;
   gap: 1rem;
   align-items: center;
+  justify-content: center;
+}
+
+.game-player-top,
+.game-player-bottom {
+  width: min(520px, 92vw);
+  display: flex;
   justify-content: center;
 }
 
@@ -32,18 +40,20 @@
   justify-content: center;
 }
 
-.game-side {
-  width: min(520px, 40vw);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 1rem;
+.game-status {
+  width: min(520px, 92vw);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.35);
+  color: white;
 }
 
-.game-side-top,
-.game-side-bottom {
-  display: flex;
-  justify-content: center;
+.game-status-error {
+  color: #ffb4b4;
+}
+
+.game-status-info {
+  opacity: 0.9;
 }
 
 .game-overlay {
@@ -72,4 +82,3 @@
   gap: 0.5rem;
   flex-wrap: wrap;
 }
-

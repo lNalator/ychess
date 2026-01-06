@@ -58,6 +58,10 @@ export default function GamePage() {
       gameId: null,
       code: null,
       matchmakingQueued: false,
+      matchmakingMatchId: null,
+      gameStatus: null,
+      realtimeStatus: "idle",
+      lastRealtimeError: null,
       rematchOpponentRequested: false,
       rematchRequestedByMe: false,
       disconnect: null,
@@ -113,6 +117,16 @@ export default function GamePage() {
         </button>
       </div>
 
+      {(online.lastRealtimeError || (online.enabled && online.gameStatus !== "IN_PROGRESS")) && (
+        <div className="game-status">
+          {online.lastRealtimeError ? (
+            <span className="game-status-error">{online.lastRealtimeError}</span>
+          ) : (
+            <span className="game-status-info">Waiting for sync...</span>
+          )}
+        </div>
+      )}
+
       {isQuitOpen && (
         <div className="game-overlay">
           <div className="game-dialog">
@@ -140,16 +154,14 @@ export default function GamePage() {
       <GameOverOverlay open={hasGameEnded} />
 
       <div className="game-main">
+        <div className="game-player-top">
+          <Timer player={topPlayer} />
+        </div>
         <div className="game-board">
           <Board />
         </div>
-        <div className="game-side">
-          <div className="game-side-top">
-            <Timer player={topPlayer} />
-          </div>
-          <div className="game-side-bottom">
-            <Timer player={bottomPlayer} />
-          </div>
+        <div className="game-player-bottom">
+          <Timer player={bottomPlayer} />
         </div>
       </div>
     </div>

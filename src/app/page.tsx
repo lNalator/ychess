@@ -51,6 +51,10 @@ export default function HomePage() {
       gameId: null,
       code: null,
       matchmakingQueued: false,
+      matchmakingMatchId: null,
+      gameStatus: null,
+      realtimeStatus: "idle",
+      lastRealtimeError: null,
       rematchOpponentRequested: false,
       rematchRequestedByMe: false,
       disconnect: null,
@@ -70,6 +74,10 @@ export default function HomePage() {
       gameId: null,
       code: null,
       matchmakingQueued: false,
+      matchmakingMatchId: null,
+      gameStatus: null,
+      realtimeStatus: "idle",
+      lastRealtimeError: null,
       disconnect: null,
     }));
     setGameState(RESET);
@@ -83,17 +91,22 @@ export default function HomePage() {
       name: name || undefined,
       timeControl,
     });
+    console.log("Created invite game session:", session);
 
     setOnline((prev) => ({
       ...prev,
       enabled: true,
       readOnly: false,
       matchmakingQueued: false,
+      matchmakingMatchId: null,
       gameId: session.gameId,
       code: session.code ?? null,
       clientName: name,
       playerColor: session.playerColor as ColorEnum,
       viewColor: session.playerColor as ColorEnum,
+      gameStatus: session.game.status,
+      realtimeStatus: session.game.status === "IN_PROGRESS" ? "in_game" : "waiting_ready",
+      lastRealtimeError: null,
       timeControlInitialSeconds: session.game.timeControl.initialSeconds,
       timeControlIncrementSeconds: session.game.timeControl.incrementSeconds ?? 0,
       rematchOpponentRequested: false,
@@ -116,16 +129,22 @@ export default function HomePage() {
       code: code.trim(),
     });
 
+    console.log("Joined invite game session:", session);
+
     setOnline((prev) => ({
       ...prev,
       enabled: true,
       readOnly: false,
       matchmakingQueued: false,
+      matchmakingMatchId: null,
       gameId: session.gameId,
       code: session.code ?? null,
       clientName: name,
       playerColor: session.playerColor as ColorEnum,
       viewColor: session.playerColor as ColorEnum,
+      gameStatus: session.game.status,
+      realtimeStatus: session.game.status === "IN_PROGRESS" ? "in_game" : "waiting_ready",
+      lastRealtimeError: null,
       timeControlInitialSeconds: session.game.timeControl.initialSeconds,
       timeControlIncrementSeconds: session.game.timeControl.incrementSeconds ?? 0,
       rematchOpponentRequested: false,
@@ -147,7 +166,11 @@ export default function HomePage() {
       gameId: null,
       code: null,
       matchmakingQueued: true,
+      matchmakingMatchId: null,
       clientName: name,
+      gameStatus: null,
+      realtimeStatus: "matchmaking",
+      lastRealtimeError: null,
       timeControlInitialSeconds: timeControl.initialSeconds,
       timeControlIncrementSeconds: timeControl.incrementSeconds ?? 0,
       rematchOpponentRequested: false,
@@ -168,7 +191,12 @@ export default function HomePage() {
     } catch {
       // ignore
     } finally {
-      setOnline((prev) => ({ ...prev, matchmakingQueued: false }));
+      setOnline((prev) => ({
+        ...prev,
+        matchmakingQueued: false,
+        matchmakingMatchId: null,
+        realtimeStatus: "idle",
+      }));
     }
   }
 
@@ -340,7 +368,16 @@ export default function HomePage() {
           {online.matchmakingQueued && (
             <>
               <MatchmakingListener />
-              <p className="home-muted">Searching... (keep this tab open)</p>
+              <p className="home-muted">
+                {online.realtimeStatus === "match_found"
+                  ? "Match found, confirming..."
+                  : "Searching... (keep this tab open)"}
+              </p>
+              {online.lastRealtimeError && (
+                <p className="home-muted" style={{ color: "#ffb4b4" }}>
+                  {online.lastRealtimeError}
+                </p>
+              )}
               <div className="home-actions">
                 <button className="home-btn" onClick={() => cancelOnlineMatchmaking()}>
                   Cancel search

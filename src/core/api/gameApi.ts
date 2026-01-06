@@ -72,13 +72,23 @@ export type GqlGameSession = {
 };
 
 export type GqlMatchmakingEvent = {
-  type: "ENQUEUED" | "DEQUEUED" | "MATCH_FOUND";
+  type:
+    | "ENQUEUED"
+    | "DEQUEUED"
+    | "MATCH_FOUND"
+    | "MATCH_CONFIRMED"
+    | "MATCH_FAILED"
+    | "ERROR";
   at: string;
   clientId: string;
+  matchId?: string | null;
   gameId?: string | null;
   playerColor?: string | null;
   game?: GqlGame | null;
+  timeControl?: GqlTimeControl | null;
+  deadlineAt?: string | null;
   message?: string | null;
+  errorCode?: string | null;
 };
 
 export const GAME_FIELDS = `
@@ -230,6 +240,26 @@ export async function respondRematch(input: {
   `;
   const data = await graphqlRequest<{ respondRematch: { ok: boolean } }>(query, { input });
   return data.respondRematch;
+}
+
+export async function clientReady(input: { clientId: string; gameId: string }): Promise<{ ok: boolean }> {
+  const query = `
+    mutation ClientReady($input: ClientReadyInput!) {
+      clientReady(input: $input) { ok }
+    }
+  `;
+  const data = await graphqlRequest<{ clientReady: { ok: boolean } }>(query, { input });
+  return data.clientReady;
+}
+
+export async function acceptMatch(input: { clientId: string; matchId: string }): Promise<{ ok: boolean }> {
+  const query = `
+    mutation AcceptMatch($input: AcceptMatchInput!) {
+      acceptMatch(input: $input) { ok }
+    }
+  `;
+  const data = await graphqlRequest<{ acceptMatch: { ok: boolean } }>(query, { input });
+  return data.acceptMatch;
 }
 
 export async function quitGame(input: { clientId: string; gameId: string }): Promise<{ ok: boolean }> {

@@ -13,6 +13,10 @@ export type OnlineGameSession = {
   viewColor: ColorEnum | null;
   readOnly: boolean;
   matchmakingQueued: boolean;
+  matchmakingMatchId: string | null;
+  gameStatus: string | null;
+  realtimeStatus: "idle" | "matchmaking" | "match_found" | "syncing" | "waiting_ready" | "in_game" | "error";
+  lastRealtimeError: string | null;
   timeControlInitialSeconds: number;
   timeControlIncrementSeconds: number;
   rematchOpponentRequested: boolean;
@@ -35,6 +39,10 @@ function createDefaultSession(): OnlineGameSession {
     viewColor: null,
     readOnly: false,
     matchmakingQueued: false,
+    matchmakingMatchId: null,
+    gameStatus: null,
+    realtimeStatus: "idle",
+    lastRealtimeError: null,
     timeControlInitialSeconds: 300,
     timeControlIncrementSeconds: 0,
     rematchOpponentRequested: false,

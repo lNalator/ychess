@@ -25,9 +25,10 @@ export default function Board() {
   const isOnline = online.enabled && !!online.gameId && !!online.clientId;
   const myColor = online.enabled ? online.playerColor : online.viewColor;
   const isReversed = myColor === ColorEnum.BLACK;
-  const isReadOnly = online.readOnly || gameState.hasGameEnded;
+  const isWaitingForStart = online.enabled && online.gameStatus !== "IN_PROGRESS";
+  const isReadOnly = online.readOnly || gameState.hasGameEnded || isWaitingForStart;
   const canPlayThisTurn =
-    !online.enabled || (myColor && myColor === playingPlayer.color);
+    !online.enabled || (!isWaitingForStart && myColor && myColor === playingPlayer.color);
 
   const possibleMoves = () => {
     let possibleMoves: Array<Position> = [];
