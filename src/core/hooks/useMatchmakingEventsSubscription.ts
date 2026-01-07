@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { useAtom } from "jotai";
 import { onlineGameAtom } from "../data/onlineGame";
 import { graphqlSubscribe } from "../api/graphqlWs";
-import { acceptMatch, GAME_FIELDS, GqlMatchmakingEvent } from "../api/gameApi";
-import { gameStateAtom, reviveGameState } from "../data/gameState";
+import { GqlMatchmakingEvent, getGameSession, buildGameStateFromGame, clientReady } from "../api/gameApi";
+import { gameStateAtom } from "../data/gameState";
 import { ColorEnum } from "../enums/color.enum";
 
 type MatchmakingData = {
@@ -33,6 +33,21 @@ export function useMatchmakingEventsSubscription() {
   useEffect(() => {
     if (!online.matchmakingQueued) return;
 
+    const deriveRealtimeStatus = (status: string | null | undefined) => {
+      switch (status) {
+        case "RUNNING":
+          return "in_game";
+        case "READY_CHECK":
+        case "WAITING_FOR_PLAYER":
+        case "CREATED":
+          return "waiting_ready";
+        case "ENDED":
+          return "in_game";
+        default:
+          return "waiting_ready";
+      }
+    };
+
     const query = `
       subscription MatchmakingEvents($clientId: ID!) {
         matchmakingEvents(clientId: $clientId) {
@@ -45,7 +60,7 @@ export function useMatchmakingEventsSubscription() {
           deadlineAt
           errorCode
           message
-          game { ${GAME_FIELDS} }
+          timeControl { initialSeconds incrementSeconds }
         }
       }
     `;
@@ -66,7 +81,7 @@ export function useMatchmakingEventsSubscription() {
 
         const event = data.matchmakingEvents;
 
-        if (event.type === "ERROR") {
+        if (event.type === "ERROR_OCCURRED") {
           setOnline((prev) => ({
             ...prev,
             realtimeStatus: "error",
@@ -85,46 +100,47 @@ export function useMatchmakingEventsSubscription() {
           return;
         }
 
-        if (event.type === "MATCH_FOUND" && event.matchId) {
+        if (event.type === "MATCH_PROPOSED" && event.gameId) {
           setOnline((prev) => ({
             ...prev,
             realtimeStatus: "match_found",
             matchmakingMatchId: event.matchId ?? null,
-            lastRealtimeError: null,
-          }));
-
-          acceptMatch({ clientId: online.clientId, matchId: event.matchId }).catch((e) =>
-            setOnline((prev) => ({
-              ...prev,
-              realtimeStatus: "error",
-              lastRealtimeError: String(e),
-            }))
-          );
-          return;
-        }
-
-        if (event.type === "MATCH_CONFIRMED" && event.gameId && event.game) {
-          setOnline((prev) => ({
-            ...prev,
-            enabled: true,
-            readOnly: false,
             matchmakingQueued: false,
-            matchmakingMatchId: null,
-            gameId: event.gameId!,
-            code: event.game.code ?? null,
+            enabled: true,
+            gameId: event.gameId ?? null,
             playerColor: (event.playerColor as ColorEnum) ?? null,
             viewColor: (event.playerColor as ColorEnum) ?? null,
-            gameStatus: event.game.status,
-            realtimeStatus: event.game.status === "IN_PROGRESS" ? "in_game" : "waiting_ready",
             lastRealtimeError: null,
-            timeControlInitialSeconds: event.game.timeControl.initialSeconds,
-            timeControlIncrementSeconds:
-              event.game.timeControl.incrementSeconds ?? 0,
-            rematchOpponentRequested: false,
-            rematchRequestedByMe: false,
-            disconnect: null,
+            timeControlInitialSeconds: event.timeControl?.initialSeconds ?? prev.timeControlInitialSeconds,
+            timeControlIncrementSeconds: event.timeControl?.incrementSeconds ?? prev.timeControlIncrementSeconds,
+            drawOfferedByMe: false,
+            drawOfferedByOpponent: false,
           }));
-          setGameState(reviveGameState(event.game.state));
+
+          getGameSession({ gameId: event.gameId, clientId: online.clientId })
+            .then((session) => {
+              setOnline((prev) => ({
+                ...prev,
+                enabled: true,
+                matchmakingQueued: false,
+                gameId: session.gameId,
+                playerColor: session.playerColor as ColorEnum,
+                viewColor: session.playerColor as ColorEnum,
+                realtimeStatus: deriveRealtimeStatus(session.game.status),
+                gameStatus: session.game.status,
+              }));
+              setGameState(buildGameStateFromGame(session.game));
+              if (session.game.status === "READY_CHECK") {
+                clientReady({ gameId: session.gameId, clientId: online.clientId }).catch(() => undefined);
+              }
+            })
+            .catch((e) =>
+              setOnline((prev) => ({
+                ...prev,
+                realtimeStatus: "error",
+                lastRealtimeError: String(e),
+              }))
+            );
         }
       },
       onError: (err) => {

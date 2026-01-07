@@ -1,16 +1,20 @@
+"use client";
+
 import React, { useState } from "react";
 import { gameStateAtom } from "@/core/data/gameState";
 import { useAtom } from "jotai";
 import { GameHelper } from "@/core/helpers/game.helper";
 import "./gameOverOverlay.css";
 import { onlineGameAtom } from "@/core/data/onlineGame";
-import { requestRematch, respondRematch } from "@/core/api/gameApi";
+import { useRouter } from "next/navigation";
+import { RESET } from "jotai/utils";
 
 export default function GameOverOverlay({
   open,
 }: Readonly<{
   open: boolean;
 }>) {
+  const router = useRouter();
   const [gameState, setGameState] = useAtom(gameStateAtom);
   const [online, setOnline] = useAtom(onlineGameAtom);
   const [timeLimit, setTimeLimit] = useState(300);
@@ -28,50 +32,38 @@ export default function GameOverOverlay({
     });
   }
 
-  async function handleRequestRematch() {
-    if (!online.enabled || !online.gameId) return;
+  function handleQuitToMenu() {
+    // Clear persisted atoms for a clean next game.
     try {
-      await requestRematch({ clientId: online.clientId, gameId: online.gameId });
-      await respondRematch({
-        clientId: online.clientId,
-        gameId: online.gameId,
-        accept: true,
-      });
-      setOnline((prev) => ({ ...prev, rematchRequestedByMe: true }));
-    } catch (e) {
-      alert(String(e));
+      localStorage.removeItem("onlineGame");
+      localStorage.removeItem("gameState");
+    } catch {
+      // ignore
     }
-  }
-
-  async function handleAcceptRematch() {
-    if (!online.enabled || !online.gameId) return;
-    try {
-      await respondRematch({
-        clientId: online.clientId,
-        gameId: online.gameId,
-        accept: true,
-      });
-    } catch (e) {
-      alert(String(e));
-    }
-  }
-
-  async function handleDeclineRematch() {
-    if (!online.enabled || !online.gameId) return;
-    try {
-      await respondRematch({
-        clientId: online.clientId,
-        gameId: online.gameId,
-        accept: false,
-      });
-      setOnline((prev) => ({
-        ...prev,
-        rematchRequestedByMe: false,
-        rematchOpponentRequested: false,
-      }));
-    } catch (e) {
-      alert(String(e));
-    }
+    setOnline((prev) => ({
+      ...prev,
+      enabled: false,
+      readOnly: false,
+      viewColor: null,
+      playerColor: null,
+      gameId: null,
+      code: null,
+      matchmakingQueued: false,
+      matchmakingMatchId: null,
+      gameStatus: null,
+      realtimeStatus: "idle",
+      lastRealtimeError: null,
+      timeControlInitialSeconds: 300,
+      timeControlIncrementSeconds: 0,
+      rematchOpponentRequested: false,
+      rematchRequestedByMe: false,
+      drawOfferedByMe: false,
+      drawOfferedByOpponent: false,
+      disconnect: null,
+    }));
+    setGameState(RESET);
+    setGameState(GameHelper.newGame(300));
+    router.push("/");
   }
 
   return (
@@ -82,37 +74,15 @@ export default function GameOverOverlay({
           {winner && <p>{winner.name} won</p>}
           {online.enabled && (
             <p style={{ marginTop: "0.75rem" }}>
-              {online.rematchOpponentRequested
-                ? "Opponent wants a rematch."
-                : online.rematchRequestedByMe
-                  ? "Waiting for opponent..."
-                  : "Rematch?"}
+              Start a new online game from the home screen to play again.
             </p>
           )}
         </div>
 
         {online.enabled ? (
-          <>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
-              <button
-                className="gameOver-button"
-                onClick={handleRequestRematch}
-                disabled={online.rematchRequestedByMe}
-              >
-                Request rematch
-              </button>
-              {online.rematchOpponentRequested && (
-                <>
-                  <button className="gameOver-button" onClick={handleAcceptRematch}>
-                    Accept
-                  </button>
-                  <button className="gameOver-button" onClick={handleDeclineRematch}>
-                    Decline
-                  </button>
-                </>
-              )}
-            </div>
-          </>
+          <p className="gameOver-content" style={{ textAlign: "center" }}>
+            Go back home and create a new invite or matchmaking session.
+          </p>
         ) : (
           <>
             <select
@@ -131,6 +101,9 @@ export default function GameOverOverlay({
             </button>
           </>
         )}
+        <button className="gameOver-button" onClick={handleQuitToMenu}>
+          Quit to menu
+        </button>
       </div>
     </div>
   );

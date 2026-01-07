@@ -3,14 +3,14 @@ import { useAtom } from "jotai";
 import Image from "next/image";
 import { useState } from "react";
 import Piece from "@/core/entities/piece.model";
-import { gameStateAtom, GameState, reviveGameState } from "@/core/data/gameState";
+import { gameStateAtom, GameState } from "@/core/data/gameState";
 import PlayerHelper from "@/core/helpers/player.helper";
 import Position from "@/core/interfaces/position";
 import { CastleEnum } from "@/core/enums/castle.enum";
 import PiecesHelper from "@/core/helpers/pieces.helper";
 import { ColorEnum } from "@/core/enums/color.enum";
 import { onlineGameAtom } from "@/core/data/onlineGame";
-import { makeMove } from "@/core/api/gameApi";
+import { buildGameStateFromGame, makeMove } from "@/core/api/gameApi";
 
 export default function Board() {
   const [gameState, setGameState] = useAtom(gameStateAtom);
@@ -25,7 +25,8 @@ export default function Board() {
   const isOnline = online.enabled && !!online.gameId && !!online.clientId;
   const myColor = online.enabled ? online.playerColor : online.viewColor;
   const isReversed = myColor === ColorEnum.BLACK;
-  const isWaitingForStart = online.enabled && online.gameStatus !== "IN_PROGRESS";
+  const isWaitingForStart =
+    online.enabled && online.gameStatus !== "RUNNING" && online.gameStatus !== "ENDED";
   const isReadOnly = online.readOnly || gameState.hasGameEnded || isWaitingForStart;
   const canPlayThisTurn =
     !online.enabled || (!isWaitingForStart && myColor && myColor === playingPlayer.color);
@@ -67,14 +68,17 @@ export default function Board() {
         try {
           const from = { ...selectedPiece.position };
           const to = { vertical, horizontal };
-          const game = await makeMove({
+          const result = await makeMove({
             clientId: online.clientId,
             gameId: online.gameId!,
             from,
             to,
           });
 
-          setGameState(reviveGameState(game.state));
+          if (!result.ok) throw new Error("Move rejected by server");
+          if (result.game) {
+            setGameState(buildGameStateFromGame(result.game));
+          }
         } catch (e) {
           alert(String(e));
         } finally {

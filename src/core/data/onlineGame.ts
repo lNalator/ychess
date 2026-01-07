@@ -21,6 +21,8 @@ export type OnlineGameSession = {
   timeControlIncrementSeconds: number;
   rematchOpponentRequested: boolean;
   rematchRequestedByMe: boolean;
+  drawOfferedByMe: boolean;
+  drawOfferedByOpponent: boolean;
   disconnect: null | {
     clientId: string;
     graceSeconds: number;
@@ -47,6 +49,8 @@ function createDefaultSession(): OnlineGameSession {
     timeControlIncrementSeconds: 0,
     rematchOpponentRequested: false,
     rematchRequestedByMe: false,
+    drawOfferedByMe: false,
+    drawOfferedByOpponent: false,
     disconnect: null,
   };
 }

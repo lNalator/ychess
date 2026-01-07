@@ -10,7 +10,7 @@ import { GameState, gameStateAtom } from "@/core/data/gameState";
 import { onlineGameAtom } from "@/core/data/onlineGame";
 import { ColorEnum } from "@/core/enums/color.enum";
 import PlayerHelper from "@/core/helpers/player.helper";
-import { quitGame } from "@/core/api/gameApi";
+import { resign } from "@/core/api/gameApi";
 import { GameHelper } from "@/core/helpers/game.helper";
 import { RESET } from "jotai/utils";
 import { useGameEventsSubscription } from "@/core/hooks/useGameEventsSubscription";
@@ -38,15 +38,26 @@ export default function GamePage() {
   );
 
   const isOnlineActive = online.enabled && !!online.gameId;
+  const isWaitingForSync =
+    online.enabled &&
+    (online.gameStatus === null ||
+      (online.gameStatus !== "RUNNING" && online.gameStatus !== "ENDED"));
 
   async function leaveOnlineSession({ goHome }: { goHome: boolean }) {
     const gameId = online.gameId;
     if (online.enabled && gameId) {
       try {
-        await quitGame({ clientId: online.clientId, gameId });
+        await resign({ clientId: online.clientId, gameId });
       } catch {
         // ignore
       }
+    }
+
+    try {
+      localStorage.removeItem("onlineGame");
+      localStorage.removeItem("gameState");
+    } catch {
+      // ignore storage errors
     }
 
     setOnline((prev) => ({
@@ -84,6 +95,13 @@ export default function GamePage() {
       reason: { resign: true },
     });
 
+    try {
+      localStorage.removeItem("onlineGame");
+      localStorage.removeItem("gameState");
+    } catch {
+      // ignore
+    }
+
     if (goHome) {
       setGameState(RESET);
       setGameState(GameHelper.newGame(300));
@@ -117,7 +135,7 @@ export default function GamePage() {
         </button>
       </div>
 
-      {(online.lastRealtimeError || (online.enabled && online.gameStatus !== "IN_PROGRESS")) && (
+      {(online.lastRealtimeError || isWaitingForSync) && (
         <div className="game-status">
           {online.lastRealtimeError ? (
             <span className="game-status-error">{online.lastRealtimeError}</span>

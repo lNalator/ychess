@@ -25,6 +25,7 @@ export function getGraphQLWsUrl(): string {
 }
 
 type ConnectionKey = string;
+type ConnectionParams = Record<string, unknown>;
 
 type SubscriptionRecord = {
   id: string;
@@ -38,7 +39,7 @@ type SubscriptionRecord = {
 type SharedConnection = {
   key: ConnectionKey;
   ws: WebSocket;
-  connectionParams: Record<string, unknown>;
+  connectionParams: ConnectionParams;
   didAck: boolean;
   nextId: number;
   subscriptions: Map<string, SubscriptionRecord>;
@@ -48,29 +49,27 @@ type SharedConnection = {
 };
 
 const sharedConnections = new Map<ConnectionKey, SharedConnection>();
-const CLOSE_GRACE_MS = 400;
+// Keep a single long-lived connection; avoid rapid re-connects when re-queueing.
+const CLOSE_GRACE_MS = 5_000;
 
-function stableStringify(value: unknown): string {
-  try {
-    return JSON.stringify(value, Object.keys(value as Record<string, unknown>).sort());
-  } catch {
-    return "";
-  }
-}
-
-function makeConnectionKey(url: string, connectionParams: Record<string, unknown>) {
-  return `${url}::${stableStringify(connectionParams)}`;
+function makeConnectionKey(url: string): ConnectionKey {
+  // Key by URL only so the app reuses a single WS per backend, regardless of params.
+  return url;
 }
 
 function send(ws: WebSocket, message: unknown) {
   ws.send(JSON.stringify(message));
 }
 
-function ensureConnection(connectionParams: Record<string, unknown>): SharedConnection {
+function ensureConnection(connectionParams: ConnectionParams): SharedConnection {
   const url = getGraphQLWsUrl();
-  const key = makeConnectionKey(url, connectionParams);
+  const key = makeConnectionKey(url);
   const existing = sharedConnections.get(key);
-  if (existing && existing.ws.readyState !== WebSocket.CLOSED) return existing;
+  if (existing && existing.ws.readyState !== WebSocket.CLOSED && existing.ws.readyState !== WebSocket.CLOSING) {
+    // Refresh params for future reconnects, but reuse the same socket.
+    existing.connectionParams = { ...existing.connectionParams, ...connectionParams };
+    return existing;
+  }
 
   const ws = new WebSocket(url, "graphql-transport-ws");
   const conn: SharedConnection = {

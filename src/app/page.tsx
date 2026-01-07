@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useAtom } from "jotai";
 import "./page.css";
 import { gameStateAtom } from "@/core/data/gameState";
-import { reviveGameState } from "@/core/data/gameState";
 import { onlineGameAtom } from "@/core/data/onlineGame";
 import { GameHelper } from "@/core/helpers/game.helper";
 import { RESET } from "jotai/utils";
@@ -14,6 +13,9 @@ import {
   dequeueMatchmaking,
   enqueueMatchmaking,
   joinInviteGame,
+  getGameSession,
+  buildGameStateFromGame,
+  clientReady,
 } from "@/core/api/gameApi";
 import { ColorEnum } from "@/core/enums/color.enum";
 import { useMatchmakingEventsSubscription } from "@/core/hooks/useMatchmakingEventsSubscription";
@@ -29,6 +31,7 @@ export default function HomePage() {
   const router = useRouter();
   const [, setGameState] = useAtom(gameStateAtom);
   const [online, setOnline] = useAtom(onlineGameAtom);
+  useMatchmakingEventsSubscription();
 
   const [view, setView] = useState<HomeView>("root");
   const [timeLimit, setTimeLimit] = useState(300);
@@ -57,12 +60,20 @@ export default function HomePage() {
       lastRealtimeError: null,
       rematchOpponentRequested: false,
       rematchRequestedByMe: false,
+      drawOfferedByMe: false,
+      drawOfferedByOpponent: false,
       disconnect: null,
     }));
     setGameState(RESET);
     setGameState(GameHelper.newGame(300));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (online.enabled && online.gameId) {
+      router.push(`/game?gameId=${online.gameId}`);
+    }
+  }, [online.enabled, online.gameId, router]);
 
   function startLocalVsFriend() {
     setOnline((prev) => ({
@@ -86,13 +97,12 @@ export default function HomePage() {
   }
 
   async function startOnlineCreateInvite() {
-    const session = await createInviteGame({
+    const invite = await createInviteGame({
       clientId: online.clientId,
       name: name || undefined,
       timeControl,
     });
-    console.log("Created invite game session:", session);
-
+    const session = await getGameSession({ gameId: invite.gameId, clientId: online.clientId });
     setOnline((prev) => ({
       ...prev,
       enabled: true,
@@ -100,36 +110,38 @@ export default function HomePage() {
       matchmakingQueued: false,
       matchmakingMatchId: null,
       gameId: session.gameId,
-      code: session.code ?? null,
+      code: invite.code ?? null,
       clientName: name,
       playerColor: session.playerColor as ColorEnum,
       viewColor: session.playerColor as ColorEnum,
       gameStatus: session.game.status,
-      realtimeStatus: session.game.status === "IN_PROGRESS" ? "in_game" : "waiting_ready",
+      realtimeStatus: session.game.status === "RUNNING" ? "in_game" : "waiting_ready",
       lastRealtimeError: null,
       timeControlInitialSeconds: session.game.timeControl.initialSeconds,
       timeControlIncrementSeconds: session.game.timeControl.incrementSeconds ?? 0,
       rematchOpponentRequested: false,
       rematchRequestedByMe: false,
+      drawOfferedByMe: false,
+      drawOfferedByOpponent: false,
       disconnect: null,
     }));
 
-    setGameState(reviveGameState(session.game.state));
+    setGameState(buildGameStateFromGame(session.game));
 
-    if (session.code) {
-      window.prompt("Invite code (share this):", session.code);
+    if (invite.code) {
+      window.prompt("Invite code (share this):", invite.code);
     }
-    router.push("/game");
+    router.push(`/game?gameId=${session.gameId}`);
   }
 
   async function startOnlineJoinInvite() {
-    const session = await joinInviteGame({
+    const joined = await joinInviteGame({
       clientId: online.clientId,
       name: name || undefined,
       code: code.trim(),
     });
 
-    console.log("Joined invite game session:", session);
+    const session = await getGameSession({ gameId: joined.gameId, clientId: online.clientId });
 
     setOnline((prev) => ({
       ...prev,
@@ -143,17 +155,22 @@ export default function HomePage() {
       playerColor: session.playerColor as ColorEnum,
       viewColor: session.playerColor as ColorEnum,
       gameStatus: session.game.status,
-      realtimeStatus: session.game.status === "IN_PROGRESS" ? "in_game" : "waiting_ready",
+      realtimeStatus: session.game.status === "RUNNING" ? "in_game" : "waiting_ready",
       lastRealtimeError: null,
       timeControlInitialSeconds: session.game.timeControl.initialSeconds,
       timeControlIncrementSeconds: session.game.timeControl.incrementSeconds ?? 0,
       rematchOpponentRequested: false,
       rematchRequestedByMe: false,
+      drawOfferedByMe: false,
+      drawOfferedByOpponent: false,
       disconnect: null,
     }));
 
-    setGameState(reviveGameState(session.game.state));
-    router.push("/game");
+    setGameState(buildGameStateFromGame(session.game));
+    if (session.game.status === "READY_CHECK") {
+      clientReady({ clientId: online.clientId, gameId: session.gameId }).catch(() => undefined);
+    }
+    router.push(`/game?gameId=${session.gameId}`);
   }
 
   async function startOnlineMatchmaking() {
@@ -367,7 +384,6 @@ export default function HomePage() {
 
           {online.matchmakingQueued && (
             <>
-              <MatchmakingListener />
               <p className="home-muted">
                 {online.realtimeStatus === "match_found"
                   ? "Match found, confirming..."
@@ -393,16 +409,4 @@ export default function HomePage() {
       )}
     </main>
   );
-}
-
-function MatchmakingListener() {
-  useMatchmakingEventsSubscription();
-  const router = useRouter();
-  const [online] = useAtom(onlineGameAtom);
-
-  useEffect(() => {
-    if (online.enabled && online.gameId) router.push("/game");
-  }, [online.enabled, online.gameId, router]);
-
-  return null;
 }

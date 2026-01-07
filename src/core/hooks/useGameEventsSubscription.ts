@@ -2,33 +2,21 @@
 
 import { useEffect, useRef } from "react";
 import { useAtom } from "jotai";
-import { gameStateAtom, reviveGameState } from "../data/gameState";
+import { gameStateAtom } from "../data/gameState";
 import { onlineGameAtom } from "../data/onlineGame";
 import { graphqlSubscribe } from "../api/graphqlWs";
-import { clientReady, GAME_FIELDS, GqlGame, getGameSession } from "../api/gameApi";
+import {
+  buildGameStateFromGame,
+  clientReady,
+  GqlGameEvent,
+  getGameSession,
+  notifyDisconnect,
+  notifyReconnect,
+} from "../api/gameApi";
 import { ColorEnum } from "../enums/color.enum";
 
 type GameEventData = {
-  gameEvents: {
-    type: string;
-    gameId: string;
-    at: string;
-    message?: string | null;
-    targetClientId?: string | null;
-    errorCode?: string | null;
-    graceSeconds?: number | null;
-    timeoutSeconds?: number | null;
-    deadlineAt?: string | null;
-    game: GqlGame;
-    player?: { id: string; name: string; color: string } | null;
-    move?: {
-      byPlayerId: string;
-      playedAt: string;
-      from: { vertical: number; horizontal: number };
-      to: { vertical: number; horizontal: number };
-      promotion?: string | null;
-    } | null;
-  };
+  gameEvents: GqlGameEvent;
 };
 
 function isGameEventData(value: unknown): value is GameEventData {
@@ -41,13 +29,9 @@ function isGameEventData(value: unknown): value is GameEventData {
   const gameEvents = obj["gameEvents"];
   if (!isRecord(gameEvents)) return false;
 
-  const game = gameEvents["game"];
-  if (!isRecord(game)) return false;
-
   return (
     typeof gameEvents["type"] === "string" &&
-    typeof gameEvents["gameId"] === "string" &&
-    typeof game["id"] === "string"
+    typeof gameEvents["gameId"] === "string"
   );
 }
 
@@ -64,6 +48,21 @@ export function useGameEventsSubscription() {
   useEffect(() => {
     if (!online.enabled || !online.gameId) return;
 
+    const deriveRealtimeStatus = (status: string | null | undefined) => {
+      switch (status) {
+        case "RUNNING":
+          return "in_game";
+        case "READY_CHECK":
+        case "WAITING_FOR_PLAYER":
+        case "CREATED":
+          return "waiting_ready";
+        case "ENDED":
+          return "in_game";
+        default:
+          return "waiting_ready";
+      }
+    };
+
     let cancelled = false;
     resyncedRef.current = false;
     connectedRef.current = false;
@@ -74,7 +73,6 @@ export function useGameEventsSubscription() {
           gameId: online.gameId!,
           clientId: online.clientId,
         });
-        console.log("Resynced game session:", session);
         if (cancelled) return;
         setOnline((prev) => ({
           ...prev,
@@ -82,26 +80,15 @@ export function useGameEventsSubscription() {
           playerColor: session.playerColor as ColorEnum,
           viewColor: session.playerColor as ColorEnum,
           gameStatus: session.game.status,
-          realtimeStatus:
-            session.game.status === "IN_PROGRESS" ? "in_game" : "waiting_ready",
+          realtimeStatus: deriveRealtimeStatus(session.game.status),
           lastRealtimeError: null,
           timeControlInitialSeconds: session.game.timeControl.initialSeconds,
-          timeControlIncrementSeconds:
-            session.game.timeControl.incrementSeconds ?? 0,
-          disconnect:
-            session.game.disconnectingClientId &&
-            session.game.disconnectDeadlineAt &&
-            session.game.disconnectingClientId !== prev.clientId
-              ? {
-                  clientId: session.game.disconnectingClientId,
-                  deadlineAt: session.game.disconnectDeadlineAt,
-                  graceSeconds: session.game.disconnectGraceSeconds,
-                }
-              : null,
+          timeControlIncrementSeconds: session.game.timeControl.incrementSeconds ?? 0,
+          disconnect: null,
         }));
         gameStatusRef.current = session.game.status;
-        gameUpdatedAtRef.current = session.game.updatedAt;
-        setGameState(reviveGameState(session.game.state));
+        gameUpdatedAtRef.current = new Date().toISOString();
+        setGameState(buildGameStateFromGame(session.game));
         resyncedRef.current = true;
       } catch (e) {
         console.warn("resync error", e);
@@ -122,12 +109,11 @@ export function useGameEventsSubscription() {
           message
           targetClientId
           errorCode
-          graceSeconds
-          timeoutSeconds
           deadlineAt
-          player { id name color }
-          move { byPlayerId playedAt from { vertical horizontal } to { vertical horizontal } promotion }
-          game { ${GAME_FIELDS} }
+          playerId
+          playerColor
+          move { by playedAt from { vertical horizontal } to { vertical horizontal } promotion }
+          clock { whiteSeconds blackSeconds }
         }
       }
     `;
@@ -138,6 +124,7 @@ export function useGameEventsSubscription() {
       connectionParams: { clientId: online.clientId },
       onConnected: () => {
         connectedRef.current = true;
+        notifyReconnect({ clientId: online.clientId, gameId: online.gameId! }).catch(() => undefined);
       },
       onData: (data) => {
         if (!isGameEventData(data)) {
@@ -150,31 +137,38 @@ export function useGameEventsSubscription() {
         }
 
         const event = data.gameEvents;
-        const state = event.game.state;
-        setGameState(reviveGameState(state));
+        // For every event, resync current game state (authoritative).
+        getGameSession({ gameId: online.gameId!, clientId: online.clientId })
+          .then((session) => {
+            setGameState(buildGameStateFromGame(session.game));
+            const me = session.game.players.find((p) => p.id === online.clientId);
+            const myColor = me?.color as ColorEnum | undefined;
+            if (myColor && online.playerColor !== myColor) {
+              setOnline((prev) => ({
+                ...prev,
+                playerColor: myColor,
+                viewColor: myColor,
+              }));
+            }
+            setOnline((prev) => ({
+              ...prev,
+              gameStatus: session.game.status,
+              realtimeStatus: deriveRealtimeStatus(session.game.status),
+              drawOfferedByMe: false,
+              drawOfferedByOpponent: false,
+            }));
+            gameStatusRef.current = session.game.status;
+            gameUpdatedAtRef.current = new Date().toISOString();
+          })
+          .catch((e) =>
+            setOnline((prev) => ({
+              ...prev,
+              realtimeStatus: "error",
+              lastRealtimeError: String(e),
+            }))
+          );
 
-        const me = state.players.find((p) => p.id === online.clientId);
-        const myColor = me?.color as ColorEnum | undefined;
-        if (myColor && online.playerColor !== myColor) {
-          setOnline((prev) => ({
-            ...prev,
-            playerColor: myColor,
-            viewColor: myColor,
-          }));
-        }
-
-        setOnline((prev) => ({
-          ...prev,
-          gameStatus: event.game.status,
-          realtimeStatus:
-            event.type === "GAME_STARTED" || event.game.status === "IN_PROGRESS"
-              ? "in_game"
-              : prev.realtimeStatus,
-        }));
-        gameStatusRef.current = event.game.status;
-        gameUpdatedAtRef.current = event.game.updatedAt;
-
-        if (event.type === "ERROR") {
+        if (event.type === "ERROR_OCCURRED") {
           setOnline((prev) => ({
             ...prev,
             realtimeStatus: "error",
@@ -184,7 +178,7 @@ export function useGameEventsSubscription() {
         }
 
         if (
-          event.type === "GAME_LOAD_REQUEST" &&
+          event.type === "READY_CHECK_STARTED" &&
           event.targetClientId === online.clientId &&
           event.deadlineAt
         ) {
@@ -192,57 +186,34 @@ export function useGameEventsSubscription() {
           setOnline((prev) => ({ ...prev, realtimeStatus: "syncing" }));
         }
 
-        if (event.type === "PLAYER_DISCONNECTED") {
-          const disconnectedId = event.player?.id;
-          const deadlineAt = event.deadlineAt;
-          const graceSeconds = event.graceSeconds;
-          if (
-            disconnectedId &&
-            deadlineAt &&
-            typeof graceSeconds === "number" &&
-            disconnectedId !== online.clientId
-          ) {
-            setOnline((prev) => ({
-              ...prev,
-              disconnect: { clientId: disconnectedId, deadlineAt, graceSeconds },
-            }));
-          }
-        }
-
-        if (event.type === "PLAYER_RECONNECTED") {
-          setOnline((prev) => ({ ...prev, disconnect: null }));
-        }
-
-        if (event.type === "REMATCH_REQUESTED") {
-          const requesterId = event.player?.id;
-          if (requesterId && requesterId !== online.clientId) {
-            setOnline((prev) => ({ ...prev, rematchOpponentRequested: true }));
-          }
-        }
-
-        if (event.type === "REMATCH_DECLINED") {
+        if (event.type === "PLAYER_DISCONNECTED" && event.playerId) {
+          const deadline = event.deadlineAt ?? null;
           setOnline((prev) => ({
             ...prev,
-            rematchOpponentRequested: false,
-            rematchRequestedByMe: false,
+            disconnect: {
+              clientId: event.playerId!,
+              graceSeconds: deadline ? Math.max(0, Math.floor((new Date(deadline).getTime() - Date.now()) / 1000)) : 0,
+              deadlineAt: deadline ?? new Date(Date.now() + 15000).toISOString(),
+            },
           }));
         }
 
-        if (event.type === "REMATCH_STARTED") {
+        if (event.type === "PLAYER_RECONNECTED" && event.playerId) {
           setOnline((prev) => ({
             ...prev,
-            rematchOpponentRequested: false,
-            rematchRequestedByMe: false,
-            disconnect: null,
+            disconnect: prev.disconnect && prev.disconnect.clientId === event.playerId ? null : prev.disconnect,
           }));
         }
 
-        if (event.type === "GAME_ENDED") {
-          setOnline((prev) => ({ ...prev, disconnect: null }));
+        if (event.type === "DRAW_OFFERED" && event.playerId && event.playerId !== online.clientId) {
+          setOnline((prev) => ({ ...prev, drawOfferedByOpponent: true }));
         }
       },
       onError: (err) => {
         console.warn("subscription error", err);
+        if (online.gameId) {
+          notifyDisconnect({ clientId: online.clientId, gameId: online.gameId }).catch(() => undefined);
+        }
         setOnline((prev) => ({
           ...prev,
           realtimeStatus: "error",
@@ -262,21 +233,20 @@ export function useGameEventsSubscription() {
               continue;
             }
             readyCycleRef.current = cycleKey;
-          try {
-            setOnline((prev) => ({ ...prev, realtimeStatus: "syncing" }));
-            await clientReady({ gameId: online.gameId!, clientId: online.clientId });
-            setOnline((prev) => ({
-              ...prev,
-              realtimeStatus:
-                prev.gameStatus === "IN_PROGRESS" ? "in_game" : "waiting_ready",
-            }));
-          } catch (e) {
-            setOnline((prev) => ({
-              ...prev,
-              realtimeStatus: "error",
-              lastRealtimeError: String(e),
-            }));
-          }
+            try {
+              setOnline((prev) => ({ ...prev, realtimeStatus: "syncing" }));
+              await clientReady({ gameId: online.gameId!, clientId: online.clientId });
+              setOnline((prev) => ({
+                ...prev,
+                realtimeStatus: "waiting_ready",
+              }));
+            } catch (e) {
+              setOnline((prev) => ({
+                ...prev,
+                realtimeStatus: "error",
+                lastRealtimeError: String(e),
+              }));
+            }
           }
         }
         await new Promise((r) => setTimeout(r, 50));
