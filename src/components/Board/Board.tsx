@@ -1,20 +1,19 @@
 import "./board.css";
-import { useAtom } from "jotai";
 import Image from "next/image";
 import { useState } from "react";
 import Piece from "@/core/entities/piece.model";
-import { gameStateAtom, GameState } from "@/core/data/gameState";
+import { GameState, useGameState } from "@/core/data/gameState";
 import PlayerHelper from "@/core/helpers/player.helper";
 import Position from "@/core/interfaces/position";
 import { CastleEnum } from "@/core/enums/castle.enum";
 import PiecesHelper from "@/core/helpers/pieces.helper";
 import { ColorEnum } from "@/core/enums/color.enum";
-import { onlineGameAtom } from "@/core/data/onlineGame";
+import { useOnlineGame } from "@/core/data/onlineGame";
 import { buildGameStateFromGame, makeMove } from "@/core/api/gameApi";
 
 export default function Board() {
-  const [gameState, setGameState] = useAtom(gameStateAtom);
-  const [online] = useAtom(onlineGameAtom);
+  const [gameState, setGameState] = useGameState();
+  const [online] = useOnlineGame();
   const { players }: GameState = gameState;
   const playingPlayer = PlayerHelper.getPlayingPlayer(players);
   const notPlayingPlayer = PlayerHelper.getNotPlayingPlayer(players);

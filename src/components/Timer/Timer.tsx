@@ -3,10 +3,9 @@ import Player from "@/core/entities/player.model";
 import "./timer.css";
 import Image from "next/image";
 import PlayerHelper from "@/core/helpers/player.helper";
-import { useAtom } from "jotai";
-import { gameStateAtom } from "@/core/data/gameState";
+import { useGameState } from "@/core/data/gameState";
 import GameButtons from "../GameButtons/GameButtons";
-import { onlineGameAtom } from "@/core/data/onlineGame";
+import { useOnlineGame } from "@/core/data/onlineGame";
 
 export default function Timer({
   player,
@@ -15,8 +14,8 @@ export default function Timer({
   player: Player;
   className?: string;
 }>) {
-  const [gameState, setGameState] = useAtom(gameStateAtom);
-  const [online] = useAtom(onlineGameAtom);
+  const [gameState, setGameState] = useGameState();
+  const [online] = useOnlineGame();
   const { players, hasGameEnded } = gameState;
   const oponnentPlayer = PlayerHelper.getOpponentPlayer(player, players);
   const [time, setTime] = useState(player.time); // Local state to track time

@@ -228,3 +228,21 @@ export function graphqlSubscribe<TData>(options: SubscribeOptions<TData>): () =>
     }
   };
 }
+
+export function closeAllGraphQLWsConnections() {
+  for (const conn of sharedConnections.values()) {
+    conn.manualClose = true;
+    try {
+      if (conn.ws.readyState === WebSocket.OPEN || conn.ws.readyState === WebSocket.CONNECTING) {
+        conn.ws.close();
+      }
+    } catch {
+      // ignore
+    }
+  }
+  sharedConnections.clear();
+}
+
+export function ensureGraphQLWsConnection(connectionParams: Record<string, unknown>) {
+  ensureConnection(connectionParams);
+}

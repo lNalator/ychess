@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useAtom } from "jotai";
-import { gameStateAtom } from "../data/gameState";
-import { onlineGameAtom } from "../data/onlineGame";
+import { useGameState } from "../data/gameState";
+import { useOnlineGame } from "../data/onlineGame";
 import { graphqlSubscribe } from "../api/graphqlWs";
 import {
   buildGameStateFromGame,
@@ -36,8 +35,8 @@ function isGameEventData(value: unknown): value is GameEventData {
 }
 
 export function useGameEventsSubscription() {
-  const [online, setOnline] = useAtom(onlineGameAtom);
-  const [, setGameState] = useAtom(gameStateAtom);
+  const [online, setOnline] = useOnlineGame();
+  const [, setGameState] = useGameState();
   const resyncedRef = useRef(false);
   const connectedRef = useRef(false);
   const readyCycleRef = useRef<string | null>(null);

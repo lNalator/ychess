@@ -1,8 +1,6 @@
-import { SetStateAction, WritableAtom } from "jotai";
+import { useCallback, useSyncExternalStore } from "react";
 import Player from "../entities/player.model";
 import { GameHelper } from "../helpers/game.helper";
-import { atomWithStorage, createJSONStorage } from "jotai/utils";
-import { SyncStorage } from "jotai/vanilla/utils/atomWithStorage";
 import Piece from "../entities/piece.model";
 import Pawn from "../entities/pawn.model";
 import King from "../entities/king.model";
@@ -52,8 +50,7 @@ function reviver(_key: string, value: unknown) {
   ) {
     const color = obj.color as ColorEnum;
     const playerId =
-      (obj.id as string | undefined) ??
-      (color === ColorEnum.WHITE ? "LOCAL_WHITE" : "LOCAL_BLACK");
+      (obj.id as string | undefined) ?? (color === ColorEnum.WHITE ? "LOCAL_WHITE" : "LOCAL_BLACK");
     return new Player(
       playerId,
       obj.name as string,
@@ -67,14 +64,8 @@ function reviver(_key: string, value: unknown) {
     );
   }
 
-  if (
-    obj &&
-    typeof obj === "object" &&
-    typeof obj.name === "string" &&
-    classRegistry[obj.name as keyof typeof classRegistry]
-  ) {
-    const ClassConstructor =
-      classRegistry[obj.name as keyof typeof classRegistry];
+  if (obj && typeof obj === "object" && typeof obj.name === "string" && classRegistry[obj.name as keyof typeof classRegistry]) {
+    const ClassConstructor = classRegistry[obj.name as keyof typeof classRegistry];
     return Object.assign(
       new ClassConstructor(
         obj.position as { vertical: number; horizontal: number },
@@ -87,19 +78,48 @@ function reviver(_key: string, value: unknown) {
   return value;
 }
 
-export function reviveGameState(state: unknown): GameState {
-  return JSON.parse(JSON.stringify(state), reviver) as GameState;
+function loadPersistedState(): GameState {
+  if (typeof window === "undefined") return GameHelper.startGame();
+  const storedValue = localStorage.getItem("gameState");
+  if (!storedValue) return GameHelper.startGame();
+  try {
+    return JSON.parse(storedValue, reviver);
+  } catch {
+    return GameHelper.startGame();
+  }
 }
 
-const storage: SyncStorage<GameState> = createJSONStorage(() => localStorage);
-storage.getItem = (key) => {
-  const storedValue = localStorage.getItem(key);
-  if (storedValue === null) return GameHelper.startGame();
-  return JSON.parse(storedValue, reviver);
-};
+let gameStateStore: GameState = loadPersistedState();
+const gameStateSubscribers = new Set<() => void>();
 
-export const gameStateAtom = atomWithStorage<GameState>(
-  "gameState",
-  GameHelper.startGame(),
-  storage
-) as WritableAtom<GameState, [SetStateAction<GameState>], void>;
+function persistGameState(next: GameState) {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("gameState", JSON.stringify(next));
+    } catch {
+      // ignore persistence failures
+    }
+  }
+}
+
+function setGameStateStore(next: GameState | ((prev: GameState) => GameState)) {
+  const resolved = typeof next === "function" ? (next as (prev: GameState) => GameState)(gameStateStore) : next;
+  gameStateStore = resolved;
+  persistGameState(resolved);
+  for (const listener of gameStateSubscribers) listener();
+}
+
+export function useGameState(): [GameState, (next: GameState | ((prev: GameState) => GameState)) => void] {
+  const state = useSyncExternalStore(
+    (listener) => {
+      gameStateSubscribers.add(listener);
+      return () => gameStateSubscribers.delete(listener);
+    },
+    () => gameStateStore,
+    () => gameStateStore
+  );
+
+  const setState = useCallback((next: GameState | ((prev: GameState) => GameState)) => setGameStateStore(next), []);
+
+  return [state, setState];
+}

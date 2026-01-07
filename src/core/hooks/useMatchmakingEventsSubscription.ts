@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAtom } from "jotai";
-import { onlineGameAtom } from "../data/onlineGame";
+import { useOnlineGame } from "../data/onlineGame";
 import { graphqlSubscribe } from "../api/graphqlWs";
 import { GqlMatchmakingEvent, getGameSession, buildGameStateFromGame, clientReady } from "../api/gameApi";
-import { gameStateAtom } from "../data/gameState";
+import { useGameState } from "../data/gameState";
 import { ColorEnum } from "../enums/color.enum";
 
 type MatchmakingData = {
@@ -27,8 +26,8 @@ function isMatchmakingData(value: unknown): value is MatchmakingData {
 }
 
 export function useMatchmakingEventsSubscription() {
-  const [online, setOnline] = useAtom(onlineGameAtom);
-  const [, setGameState] = useAtom(gameStateAtom);
+  const [online, setOnline] = useOnlineGame();
+  const [, setGameState] = useGameState();
 
   useEffect(() => {
     if (!online.matchmakingQueued) return;

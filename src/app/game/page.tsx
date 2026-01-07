@@ -2,24 +2,23 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAtom } from "jotai";
 import Board from "@/components/Board/Board";
 import Timer from "@/components/Timer/Timer";
 import GameOverOverlay from "@/components/gameOverOverlay/GameOverOverlay";
-import { GameState, gameStateAtom } from "@/core/data/gameState";
-import { onlineGameAtom } from "@/core/data/onlineGame";
+import { GameState, useGameState } from "@/core/data/gameState";
+import { useOnlineGame } from "@/core/data/onlineGame";
 import { ColorEnum } from "@/core/enums/color.enum";
 import PlayerHelper from "@/core/helpers/player.helper";
 import { resign } from "@/core/api/gameApi";
 import { GameHelper } from "@/core/helpers/game.helper";
-import { RESET } from "jotai/utils";
 import { useGameEventsSubscription } from "@/core/hooks/useGameEventsSubscription";
+import { closeAllGraphQLWsConnections } from "@/core/api/graphqlWs";
 import "./game.css";
 
 export default function GamePage() {
   const router = useRouter();
-  const [gameState, setGameState] = useAtom(gameStateAtom);
-  const [online, setOnline] = useAtom(onlineGameAtom);
+  const [gameState, setGameState] = useGameState();
+  const [online, setOnline] = useOnlineGame();
   const { players, hasGameEnded }: GameState = gameState;
 
   useGameEventsSubscription();
@@ -59,6 +58,7 @@ export default function GamePage() {
     } catch {
       // ignore storage errors
     }
+    closeAllGraphQLWsConnections();
 
     setOnline((prev) => ({
       ...prev,
@@ -79,8 +79,7 @@ export default function GamePage() {
     }));
 
     if (goHome) {
-      setGameState(RESET);
-      setGameState(GameHelper.newGame(300));
+      setGameState(GameHelper.newGame(online.timeControlInitialSeconds ?? 300));
       router.push("/");
     }
   }
@@ -101,9 +100,9 @@ export default function GamePage() {
     } catch {
       // ignore
     }
+    closeAllGraphQLWsConnections();
 
     if (goHome) {
-      setGameState(RESET);
       setGameState(GameHelper.newGame(300));
       router.push("/");
     }

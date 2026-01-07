@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { gameStateAtom } from "@/core/data/gameState";
-import { useAtom } from "jotai";
+import { useGameState } from "@/core/data/gameState";
 import { GameHelper } from "@/core/helpers/game.helper";
 import "./gameOverOverlay.css";
-import { onlineGameAtom } from "@/core/data/onlineGame";
+import { useOnlineGame } from "@/core/data/onlineGame";
 import { useRouter } from "next/navigation";
-import { RESET } from "jotai/utils";
 
 export default function GameOverOverlay({
   open,
@@ -15,8 +13,8 @@ export default function GameOverOverlay({
   open: boolean;
 }>) {
   const router = useRouter();
-  const [gameState, setGameState] = useAtom(gameStateAtom);
-  const [online, setOnline] = useAtom(onlineGameAtom);
+  const [gameState, setGameState] = useGameState();
+  const [online, setOnline] = useOnlineGame();
   const [timeLimit, setTimeLimit] = useState(300);
   const { players, reason, winner } = gameState;
 
@@ -61,7 +59,6 @@ export default function GameOverOverlay({
       drawOfferedByOpponent: false,
       disconnect: null,
     }));
-    setGameState(RESET);
     setGameState(GameHelper.newGame(300));
     router.push("/");
   }

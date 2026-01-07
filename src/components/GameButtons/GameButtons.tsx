@@ -1,15 +1,14 @@
 import React from "react";
-import { gameStateAtom } from "@/core/data/gameState";
+import { useGameState } from "@/core/data/gameState";
 import Player from "@/core/entities/player.model";
 import PlayerHelper from "@/core/helpers/player.helper";
-import { useAtom } from "jotai";
 import "./gameButtons.css";
-import { onlineGameAtom } from "@/core/data/onlineGame";
+import { useOnlineGame } from "@/core/data/onlineGame";
 import { offerDraw, resign } from "@/core/api/gameApi";
 
 export default function GameButtons({ player }: { player: Player }) {
-  const [gameState, setGameState] = useAtom(gameStateAtom);
-  const [online, setOnline] = useAtom(onlineGameAtom);
+  const [gameState, setGameState] = useGameState();
+  const [online, setOnline] = useOnlineGame();
   const { players, hasGameEnded } = gameState;
 
   const [askedForDraw, setAskedForDraw] = React.useState(false);

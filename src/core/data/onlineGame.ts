@@ -1,6 +1,4 @@
-import { SetStateAction, WritableAtom } from "jotai";
-import { atomWithStorage, createJSONStorage } from "jotai/utils";
-import { SyncStorage } from "jotai/vanilla/utils/atomWithStorage";
+import { useCallback, useSyncExternalStore } from "react";
 import { ColorEnum } from "../enums/color.enum";
 
 export type OnlineGameSession = {
@@ -55,11 +53,9 @@ function createDefaultSession(): OnlineGameSession {
   };
 }
 
-const storage: SyncStorage<OnlineGameSession> = createJSONStorage(
-  () => localStorage
-);
-storage.getItem = (key) => {
-  const storedValue = localStorage.getItem(key);
+function loadPersisted(): OnlineGameSession {
+  if (typeof window === "undefined") return createDefaultSession();
+  const storedValue = localStorage.getItem("onlineGame");
   if (storedValue === null) return createDefaultSession();
   try {
     const parsed = JSON.parse(storedValue) as Partial<OnlineGameSession>;
@@ -71,10 +67,46 @@ storage.getItem = (key) => {
   } catch {
     return createDefaultSession();
   }
-};
+}
 
-export const onlineGameAtom = atomWithStorage<OnlineGameSession>(
-  "onlineGame",
-  createDefaultSession(),
-  storage
-) as WritableAtom<OnlineGameSession, [SetStateAction<OnlineGameSession>], void>;
+let onlineGameStore: OnlineGameSession = loadPersisted();
+const onlineGameSubscribers = new Set<() => void>();
+
+function persistOnlineGame(next: OnlineGameSession) {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("onlineGame", JSON.stringify(next));
+    } catch {
+      // ignore persistence failures
+    }
+  }
+}
+
+function setOnlineGameStore(next: OnlineGameSession | ((prev: OnlineGameSession) => OnlineGameSession)) {
+  const resolved =
+    typeof next === "function" ? (next as (prev: OnlineGameSession) => OnlineGameSession)(onlineGameStore) : next;
+  onlineGameStore = resolved;
+  persistOnlineGame(resolved);
+  for (const listener of onlineGameSubscribers) listener();
+}
+
+export function useOnlineGame(): [
+  OnlineGameSession,
+  (next: OnlineGameSession | ((prev: OnlineGameSession) => OnlineGameSession)) => void,
+] {
+  const state = useSyncExternalStore(
+    (listener) => {
+      onlineGameSubscribers.add(listener);
+      return () => onlineGameSubscribers.delete(listener);
+    },
+    () => onlineGameStore,
+    () => onlineGameStore
+  );
+
+  const setState = useCallback(
+    (next: OnlineGameSession | ((prev: OnlineGameSession) => OnlineGameSession)) => setOnlineGameStore(next),
+    []
+  );
+
+  return [state, setState];
+}
