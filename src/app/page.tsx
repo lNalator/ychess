@@ -8,6 +8,7 @@ import { LocalPlayCard } from "./home/components/LocalPlayCard";
 import { OnlineMenuCard } from "./home/components/OnlineMenuCard";
 import { OnlineCodeCard } from "./home/components/OnlineCodeCard";
 import { OnlineMatchmakingCard } from "./home/components/OnlineMatchmakingCard";
+import { PuzzlesMenuCard } from "./home/components/PuzzlesMenuCard";
 
 export default function HomePage() {
   const {
@@ -20,18 +21,29 @@ export default function HomePage() {
     code,
     setCode,
     online,
+    puzzlesDifficulty,
+    setPuzzlesDifficulty,
+    puzzlesTheme,
+    setPuzzlesTheme,
     startLocalVsFriend,
     startOnlineCreateInvite,
     startOnlineJoinInvite,
     startOnlineMatchmaking,
     cancelOnlineMatchmaking,
+    startPuzzles,
   } = useHomeController();
 
   return (
     <main className="home-root">
       <h1 className="home-title">YChess</h1>
 
-      {view === "root" && <RootMenu onLocal={() => setView("local")} onOnline={() => setView("online")} />}
+      {view === "root" && 
+        <RootMenu 
+          onLocal={() => setView("local")} 
+          onOnline={() => setView("online")}
+          onPuzzles={() => setView("puzzles")}
+        />
+      }
 
       {view === "local" && (
         <LocalPlayCard
@@ -76,6 +88,17 @@ export default function HomePage() {
           onFind={() => startOnlineMatchmaking().catch((e) => alert(String(e)))}
           onCancel={cancelOnlineMatchmaking}
           onBack={() => setView("online")}
+        />
+      )}
+
+      {view === "puzzles" && (
+        <PuzzlesMenuCard
+          puzzlesDifficulty={puzzlesDifficulty}
+          puzzlesTheme={puzzlesTheme}
+          onPuzzlesDifficultyChange={setPuzzlesDifficulty}
+          onPuzzlesThemesChange={setPuzzlesTheme}
+          onPlay={startPuzzles}
+          onBack={() => setView("root")}
         />
       )}
     </main>

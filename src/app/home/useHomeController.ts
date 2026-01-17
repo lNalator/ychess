@@ -16,6 +16,8 @@ import {
 import { closeAllGraphQLWsConnections, ensureGraphQLWsConnection } from "@/core/api/graphqlWs";
 import { useMatchmakingEventsSubscription } from "@/core/hooks/useMatchmakingEventsSubscription";
 import { HomeView, TimeControlChoice } from "./types";
+import { PuzzlesDifficultyEnum } from "@/shared/enums/puzzles-difficulty.enum";
+import { PuzzlesThemesEnum } from "@/shared/enums/puzzles-themes.enum";
 
 export function useHomeController() {
   const router = useRouter();
@@ -27,6 +29,9 @@ export function useHomeController() {
   const [timeLimit, setTimeLimit] = useState(300);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+
+  const [puzzlesDifficulty, setPuzzlesDifficulty] = useState(PuzzlesDifficultyEnum.normal);
+  const [puzzlesTheme, setPuzzlesTheme] = useState(PuzzlesThemesEnum.None);
 
   const timeControl: TimeControlChoice = useMemo(
     () => ({ initialSeconds: timeLimit, incrementSeconds: 0 }),
@@ -217,6 +222,8 @@ export function useHomeController() {
     }
   };
 
+  const startPuzzles = () => {};
+
   return {
     view,
     setView,
@@ -228,10 +235,15 @@ export function useHomeController() {
     setCode,
     timeControl,
     online,
+    puzzlesDifficulty,
+    setPuzzlesDifficulty,
+    puzzlesTheme,
+    setPuzzlesTheme,
     startLocalVsFriend,
     startOnlineCreateInvite,
     startOnlineJoinInvite,
     startOnlineMatchmaking,
     cancelOnlineMatchmaking,
+    startPuzzles,
   };
 }

@@ -3,6 +3,7 @@ export type HomeView =
   | "local"
   | "online"
   | "online-code"
-  | "online-matchmaking";
+  | "online-matchmaking"
+  | "puzzles";
 
 export type TimeControlChoice = { initialSeconds: number; incrementSeconds: number };
