@@ -21,6 +21,7 @@ export default function HomePage() {
     setCode,
     online,
     startLocalVsFriend,
+    startLocalVsBot,
     startOnlineCreateInvite,
     startOnlineJoinInvite,
     startOnlineMatchmaking,
@@ -38,6 +39,7 @@ export default function HomePage() {
           timeLimit={timeLimit}
           onTimeLimitChange={setTimeLimit}
           onPlay={startLocalVsFriend}
+          onBot={() => startLocalVsBot().catch((e) => alert(String(e)))}
           onBack={() => setView("root")}
         />
       )}

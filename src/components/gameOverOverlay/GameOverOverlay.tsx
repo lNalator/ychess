@@ -41,6 +41,7 @@ export default function GameOverOverlay({
     setOnline((prev) => ({
       ...prev,
       enabled: false,
+      mode: "local",
       readOnly: false,
       viewColor: null,
       playerColor: null,

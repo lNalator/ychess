@@ -10,9 +10,11 @@ import { useOnlineGame } from "@/core/data/onlineGame";
 export default function Timer({
   player,
   className,
+  hideClock = false,
 }: Readonly<{
   player: Player;
   className?: string;
+  hideClock?: boolean;
 }>) {
   const [gameState, setGameState] = useGameState();
   const [online] = useOnlineGame();
@@ -143,10 +145,13 @@ export default function Timer({
       </div>
       <div className="timer-leftSide">
         <div className="time">
-          <p>
-            {minutes < 10 ? `0${minutes} ` : minutes + " "}:
-            {seconds < 10 ? ` 0${seconds}` : " " + seconds}
-          </p>
+          {!hideClock && (
+            <p>
+              {minutes < 10 ? `0${minutes} ` : minutes + " "}:
+              {seconds < 10 ? ` 0${seconds}` : " " + seconds}
+            </p>
+          )}
+          {hideClock && <p>No timer</p>}
           {disconnectLeftSeconds !== null && (
             <p style={{ fontSize: "0.9rem", opacity: 0.9 }}>
               leaving in {disconnectLeftSeconds}s

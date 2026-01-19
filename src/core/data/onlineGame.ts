@@ -3,6 +3,7 @@ import { ColorEnum } from "../enums/color.enum";
 
 export type OnlineGameSession = {
   enabled: boolean;
+  mode: "local" | "online" | "bot";
   gameId: string | null;
   code: string | null;
   clientId: string;
@@ -31,6 +32,7 @@ export type OnlineGameSession = {
 function createDefaultSession(): OnlineGameSession {
   return {
     enabled: false,
+    mode: "local",
     gameId: null,
     code: null,
     clientId: crypto.randomUUID(),
@@ -59,9 +61,14 @@ function loadPersisted(): OnlineGameSession {
   if (storedValue === null) return createDefaultSession();
   try {
     const parsed = JSON.parse(storedValue) as Partial<OnlineGameSession>;
+    const mode =
+      parsed.mode === "online" || parsed.mode === "bot" || parsed.mode === "local"
+        ? parsed.mode
+        : "local";
     return {
       ...createDefaultSession(),
       ...parsed,
+      mode,
       clientId: parsed.clientId ?? crypto.randomUUID(),
     };
   } catch {

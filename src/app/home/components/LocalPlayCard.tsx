@@ -4,10 +4,11 @@ type Props = {
   timeLimit: number;
   onTimeLimitChange: (value: number) => void;
   onPlay: () => void;
+  onBot: () => void;
   onBack: () => void;
 };
 
-export function LocalPlayCard({ timeLimit, onTimeLimitChange, onPlay, onBack }: Props) {
+export function LocalPlayCard({ timeLimit, onTimeLimitChange, onPlay, onBot, onBack }: Props) {
   return (
     <div className="home-card">
       <h2>Play Locally</h2>
@@ -28,8 +29,8 @@ export function LocalPlayCard({ timeLimit, onTimeLimitChange, onPlay, onBack }: 
         <button className="home-btn" onClick={onPlay}>
           Local vs Friend
         </button>
-        <button className="home-btn" disabled>
-          Vs Bot (soon)
+        <button className="home-btn" onClick={onBot}>
+          Vs Bot
         </button>
         <button className="home-btn" disabled>
           Chess Problems (soon)

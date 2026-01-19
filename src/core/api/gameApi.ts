@@ -51,6 +51,12 @@ export type GqlGameSession = {
   game: GqlGameView;
 };
 
+export type GqlBotMoveResponse = {
+  bestMove?: string | null;
+  ponder?: string | null;
+  game: GqlGameView;
+};
+
 export type GqlMatchmakingEvent = {
   type: "PLAYER_ENQUEUED" | "PLAYER_DEQUEUED" | "MATCH_PROPOSED" | "MATCH_FAILED" | "ERROR_OCCURRED" | "MATCH_CONFIRMED";
   at: string;
@@ -119,6 +125,24 @@ export async function createInviteGame(input: {
   return data.createInviteGame;
 }
 
+export async function startBotGame(input: {
+  clientId: string;
+  name?: string;
+}): Promise<GqlGameSession> {
+  const query = `
+    mutation StartBotGame($input: StartBotGameInputDTO!) {
+      startBotGame(input: $input) {
+        gameId
+        code
+        playerColor
+        game { ${GAME_FIELDS} }
+      }
+    }
+  `;
+  const data = await graphqlRequest<{ startBotGame: GqlGameSession }>(query, { input });
+  return data.startBotGame;
+}
+
 export async function joinInviteGame(input: {
   clientId: string;
   code: string;
@@ -174,6 +198,27 @@ export async function makeMove(input: {
   `;
   const data = await graphqlRequest<{ makeMove: { ok: boolean; game: GqlGameView | null } }>(query, { input });
   return data.makeMove;
+}
+
+export async function botMove(input: {
+  clientId: string;
+  gameId: string;
+  from: { vertical: number; horizontal: number };
+  to: { vertical: number; horizontal: number };
+  promotion?: string;
+  movetimeMs: number;
+}): Promise<GqlBotMoveResponse> {
+  const query = `
+    mutation BotMove($input: BotMoveInputDTO!) {
+      botMove(input: $input) {
+        bestMove
+        ponder
+        game { ${GAME_FIELDS} }
+      }
+    }
+  `;
+  const data = await graphqlRequest<{ botMove: GqlBotMoveResponse }>(query, { input });
+  return data.botMove;
 }
 
 export async function clientReady(input: { clientId: string; gameId: string }): Promise<{ ok: boolean }> {

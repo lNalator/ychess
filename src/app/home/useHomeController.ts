@@ -12,6 +12,7 @@ import {
   enqueueMatchmaking,
   getGameSession,
   joinInviteGame,
+  startBotGame,
 } from "@/core/api/gameApi";
 import { closeAllGraphQLWsConnections, ensureGraphQLWsConnection } from "@/core/api/graphqlWs";
 import { useMatchmakingEventsSubscription } from "@/core/hooks/useMatchmakingEventsSubscription";
@@ -39,7 +40,7 @@ export function useHomeController() {
       view === "online-code" ||
       view === "online-matchmaking" ||
       online.matchmakingQueued ||
-      online.enabled;
+      (online.enabled && online.mode === "online");
     if (wantsSocket) {
       ensureGraphQLWsConnection({ clientId: online.clientId });
     } else {
@@ -54,6 +55,7 @@ export function useHomeController() {
     setOnline((prev) => ({
       ...prev,
       enabled: false,
+      mode: "local",
       readOnly: false,
       viewColor: null,
       playerColor: null,
@@ -85,6 +87,7 @@ export function useHomeController() {
     setOnline((prev) => ({
       ...prev,
       enabled: false,
+      mode: "local",
       readOnly: false,
       viewColor: null,
       playerColor: null,
@@ -101,6 +104,35 @@ export function useHomeController() {
     router.push("/game");
   };
 
+  const startLocalVsBot = async () => {
+    const session = await startBotGame({ clientId: online.clientId, name: name || undefined });
+    setOnline((prev) => ({
+      ...prev,
+      enabled: true,
+      mode: "bot",
+      readOnly: false,
+      matchmakingQueued: false,
+      matchmakingMatchId: null,
+      gameId: session.gameId,
+      code: null,
+      clientName: name,
+      playerColor: session.playerColor as ColorEnum,
+      viewColor: session.playerColor as ColorEnum,
+      gameStatus: session.game.status,
+      realtimeStatus: "in_game",
+      lastRealtimeError: null,
+      timeControlInitialSeconds: session.game.timeControl.initialSeconds,
+      timeControlIncrementSeconds: session.game.timeControl.incrementSeconds ?? 0,
+      rematchOpponentRequested: false,
+      rematchRequestedByMe: false,
+      drawOfferedByMe: false,
+      drawOfferedByOpponent: false,
+      disconnect: null,
+    }));
+    setGameState(buildGameStateFromGame(session.game));
+    router.push(`/game?gameId=${session.gameId}`);
+  };
+
   const startOnlineCreateInvite = async () => {
     const invite = await createInviteGame({
       clientId: online.clientId,
@@ -111,6 +143,7 @@ export function useHomeController() {
     setOnline((prev) => ({
       ...prev,
       enabled: true,
+      mode: "online",
       readOnly: false,
       matchmakingQueued: false,
       matchmakingMatchId: null,
@@ -147,6 +180,7 @@ export function useHomeController() {
     setOnline((prev) => ({
       ...prev,
       enabled: true,
+      mode: "online",
       readOnly: false,
       matchmakingQueued: false,
       matchmakingMatchId: null,
@@ -177,6 +211,7 @@ export function useHomeController() {
     setOnline((prev) => ({
       ...prev,
       enabled: false,
+      mode: "online",
       readOnly: false,
       viewColor: null,
       playerColor: null,
@@ -233,5 +268,6 @@ export function useHomeController() {
     startOnlineJoinInvite,
     startOnlineMatchmaking,
     cancelOnlineMatchmaking,
+    startLocalVsBot,
   };
 }

@@ -37,8 +37,10 @@ export default function GamePage() {
   );
 
   const isOnlineActive = online.enabled && !!online.gameId;
+  const isOnlineMultiplayer = online.enabled && online.mode === "online";
+  const hideClock = online.enabled && online.timeControlInitialSeconds === 0 && online.timeControlIncrementSeconds === 0;
   const isWaitingForSync =
-    online.enabled &&
+    isOnlineMultiplayer &&
     (online.gameStatus === null ||
       (online.gameStatus !== "RUNNING" && online.gameStatus !== "ENDED"));
 
@@ -63,6 +65,7 @@ export default function GamePage() {
     setOnline((prev) => ({
       ...prev,
       enabled: false,
+      mode: "local",
       readOnly: true,
       viewColor: prev.playerColor ?? prev.viewColor,
       playerColor: null,
@@ -172,13 +175,13 @@ export default function GamePage() {
 
       <div className="game-main">
         <div className="game-player-top">
-          <Timer player={topPlayer} />
+          <Timer player={topPlayer} hideClock={hideClock} />
         </div>
         <div className="game-board">
           <Board />
         </div>
         <div className="game-player-bottom">
-          <Timer player={bottomPlayer} />
+          <Timer player={bottomPlayer} hideClock={hideClock} />
         </div>
       </div>
     </div>

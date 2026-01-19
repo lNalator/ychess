@@ -45,7 +45,7 @@ export function useGameEventsSubscription() {
   const readyDeadlineRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!online.enabled || !online.gameId) return;
+    if (!online.enabled || online.mode !== "online" || !online.gameId) return;
 
     const deriveRealtimeStatus = (status: string | null | undefined) => {
       switch (status) {
@@ -257,7 +257,7 @@ export function useGameEventsSubscription() {
       unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [online.enabled, online.gameId, online.clientId]);
+  }, [online.enabled, online.mode, online.gameId, online.clientId]);
 
   return { online };
 }

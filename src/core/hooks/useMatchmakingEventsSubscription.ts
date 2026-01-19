@@ -106,6 +106,7 @@ export function useMatchmakingEventsSubscription() {
             matchmakingMatchId: event.matchId ?? null,
             matchmakingQueued: false,
             enabled: true,
+            mode: "online",
             gameId: event.gameId ?? null,
             playerColor: (event.playerColor as ColorEnum) ?? null,
             viewColor: (event.playerColor as ColorEnum) ?? null,
@@ -121,6 +122,7 @@ export function useMatchmakingEventsSubscription() {
               setOnline((prev) => ({
                 ...prev,
                 enabled: true,
+                mode: "online",
                 matchmakingQueued: false,
                 gameId: session.gameId,
                 playerColor: session.playerColor as ColorEnum,

@@ -9,11 +9,11 @@ import { CastleEnum } from "@/core/enums/castle.enum";
 import PiecesHelper from "@/core/helpers/pieces.helper";
 import { ColorEnum } from "@/core/enums/color.enum";
 import { useOnlineGame } from "@/core/data/onlineGame";
-import { buildGameStateFromGame, makeMove } from "@/core/api/gameApi";
+import { botMove, buildGameStateFromGame, makeMove } from "@/core/api/gameApi";
 
 export default function Board() {
   const [gameState, setGameState] = useGameState();
-  const [online] = useOnlineGame();
+  const [online, setOnline] = useOnlineGame();
   const { players }: GameState = gameState;
   const playingPlayer = PlayerHelper.getPlayingPlayer(players);
   const notPlayingPlayer = PlayerHelper.getNotPlayingPlayer(players);
@@ -22,6 +22,7 @@ export default function Board() {
   const nbFiles = 8;
 
   const isOnline = online.enabled && !!online.gameId && !!online.clientId;
+  const isBotGame = online.enabled && online.mode === "bot";
   const myColor = online.enabled ? online.playerColor : online.viewColor;
   const isReversed = myColor === ColorEnum.BLACK;
   const isWaitingForStart =
@@ -63,7 +64,7 @@ export default function Board() {
   ) => {
     if (isReadOnly) return;
     if (selectedPiece && isPossibleMove && canPlayThisTurn) {
-      if (isOnline) {
+      if (isOnline && !isBotGame) {
         try {
           const from = { ...selectedPiece.position };
           const to = { vertical, horizontal };
@@ -78,6 +79,30 @@ export default function Board() {
           if (result.game) {
             setGameState(buildGameStateFromGame(result.game));
           }
+        } catch (e) {
+          alert(String(e));
+        } finally {
+          setSelectedPiece(null);
+        }
+        return;
+      }
+
+      if (isOnline && isBotGame) {
+        try {
+          const from = { ...selectedPiece.position };
+          const to = { vertical, horizontal };
+          const result = await botMove({
+            clientId: online.clientId,
+            gameId: online.gameId!,
+            from,
+            to,
+            movetimeMs: 250,
+          });
+          setGameState(buildGameStateFromGame(result.game));
+          setOnline((prev) => ({
+            ...prev,
+            gameStatus: result.game.status,
+          }));
         } catch (e) {
           alert(String(e));
         } finally {
